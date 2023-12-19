@@ -52,9 +52,10 @@
            (context-str-1 (when ctx (cl-reduce (lambda (acc str) (concat acc "\n" str)) ctx)))
            (_ (set-text-properties 0 (length context-str-1) '(face hl-line) context-str-1))
            (context-str (concat context-str-1 "\n-------------context-------------\n" covered-line)))
-      (move-overlay buffer-overlay ol-beg-pos ol-end-pos)
-      (overlay-put buffer-overlay 'name 'jason)
-      (overlay-put buffer-overlay 'display context-str)
+      (when buffer-overlay
+        (move-overlay buffer-overlay ol-beg-pos ol-end-pos)
+        (overlay-put buffer-overlay 'name 'jason)
+        (overlay-put buffer-overlay 'display context-str))
       )
     (setq prev-ctx ctx))
   (setq-local prev-window-start (window-start)))
@@ -84,7 +85,7 @@
       (progn (setq-local prev-ctx nil)
              (setq-local prev-window-start (window-start))
              (remove-overlays (point-min) (point-max) 'name 'jason)
-             (unless (boundp 'buffer-overlay) (setq-local buffer-overlay (make-overlay 1 1)))
+             (setq-local buffer-overlay (make-overlay 1 1))
              (add-hook 'post-command-hook (lambda () (scroll-overlay-into-position)) nil t)
              (add-to-list 'window-scroll-functions #'code-context-window-scroll-function)
 
@@ -100,4 +101,5 @@
       (remove-overlays (point-min) (point-max) 'name 'jason))))
 
 (provide 'code-context)
+(add-hook 'prog-mode-hook #'code-context-mode)
 ;;; code-context.el ends here
