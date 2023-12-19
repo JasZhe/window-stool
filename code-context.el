@@ -30,13 +30,13 @@
   (find-previous-non-empty-line)
   (let ((ctx '())
         (prev-indentation (current-indentation)))
-    (cl-pushnew (buffer-substring-no-properties (line-beginning-position) (line-end-position)) ctx)
+    (cl-pushnew (buffer-substring (line-beginning-position) (line-end-position)) ctx)
     (while (> (current-indentation) 0)
       (forward-line -1)
       (find-previous-non-empty-line)
       (when (< (current-indentation) prev-indentation)
         (setq prev-indentation (current-indentation))
-        (cl-pushnew (buffer-substring-no-properties (line-beginning-position) (line-end-position)) ctx)
+        (cl-pushnew (buffer-substring (line-beginning-position) (line-end-position)) ctx)
         )
       )
     ctx))
@@ -86,65 +86,18 @@
              (remove-overlays (point-min) (point-max) 'name 'jason)
              (unless (boundp 'buffer-overlay) (setq-local buffer-overlay (make-overlay 1 1)))
              (add-hook 'post-command-hook (lambda () (scroll-overlay-into-position)) nil t)
-             (add-to-list 'window-scroll-functions #'code-context-window-scroll-function))
+             (add-to-list 'window-scroll-functions #'code-context-window-scroll-function)
+
+             ;; (add-hook 'post-command-hook (lambda () (code-context-create-window nil nil)) nil t)
+             ;; (add-to-list 'window-scroll-functions #'code-context-create-window)
+             )
     (progn
       (remove-hook 'post-command-hook (lambda () (scroll-overlay-into-position)))
       (setq window-scroll-functions (remove #'code-context-window-scroll-function window-scroll-functions))
+      ;;
+      ;; (setq window-scroll-functions (remove #'code-context-create-window window-scroll-functions))
+      ;; (remove-hook 'post-command-hook (lambda () (code-context-create-window nil nil)))
       (remove-overlays (point-min) (point-max) 'name 'jason))))
-
-(let ((x 1))
-  (progn
-    (progn
-      (progn
-        (progn
-          (progn ))))))
 
 (provide 'code-context)
 ;;; code-context.el ends here
-
-
-(defun test-function ()
-  (when (buffer-file-name)
-    (progn
-      (let ((x (buffer-name)))
-        (let ((y (buffer-name)))
-          (let ((z (buffer-name)))
-            (message z)))))))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-;;;asdsad
