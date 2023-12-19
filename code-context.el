@@ -41,9 +41,6 @@
       )
     ctx))
 
-(setq prev-ctx nil)
-(setq-local prev-window-start (window-start))
-(unless buffer-overlay (setq-local buffer-overlay (make-overlay 1 1)))
 ;; issue where we can't keep scrolling if overlay would move cursor outside of scroll margin
 ;; really only an issue when scrolling up
 (defun code-context-single-overlay (display-start)
@@ -81,8 +78,10 @@
   :init-value nil
   :lighter " CodeCtx"
   (if code-context-mode
-      (progn
-        (add-hook 'post-command-hook (lambda () (code-context-window-scroll-function nil (window-start)))))
+      (progn (setq-local prev-ctx nil)
+             (setq-local prev-window-start (window-start))
+             (unless (boundp 'buffer-overlay) (setq-local buffer-overlay (make-overlay 1 1)))
+             (add-hook 'post-command-hook (lambda () (code-context-window-scroll-function nil (window-start))) nil t))
     (progn
       (remove-hook 'post-command-hook (lambda () (code-context-window-scroll-function nil (window-start))))
       (remove-overlays (point-min) (point-max) 'name 'jason))))
