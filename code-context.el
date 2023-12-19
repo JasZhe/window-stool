@@ -83,6 +83,7 @@
   (if code-context-mode
       (progn (setq-local prev-ctx nil)
              (setq-local prev-window-start (window-start))
+             (remove-overlays (point-min) (point-max) 'name 'jason)
              (unless (boundp 'buffer-overlay) (setq-local buffer-overlay (make-overlay 1 1)))
              (add-hook 'post-command-hook (lambda () (scroll-overlay-into-position)) nil t)
              (add-to-list 'window-scroll-functions #'code-context-window-scroll-function))
