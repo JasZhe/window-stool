@@ -42,11 +42,12 @@
     ctx))
 
 (setq prev-ctx nil)
+(setq-local prev-window-start (window-start))
 (unless buffer-overlay (setq-local buffer-overlay (make-overlay 1 1)))
 ;; issue where we can't keep scrolling if overlay would move cursor outside of scroll margin
 ;; really only an issue when scrolling up
 (defun code-context-single-overlay (display-start)
-  (when this-command
+  (when (and this-command (not (eq (window-start) prev-window-start)))
     (let ((ctx (save-excursion (get-context-from display-start))))
       (let* ((display-start-empty-line-p (save-excursion (goto-char display-start) (or (looking-at-p "^$") (looking-at-p "[[:blank:]]*$"))))
              (ol-beg-pos display-start)
@@ -55,17 +56,16 @@
              (context-str-1 (when ctx (cl-reduce (lambda (acc str) (concat acc "\n" str)) ctx)))
              (_ (set-text-properties 0 (length context-str-1) '(face hl-line) context-str-1))
              (context-str (concat context-str-1 "\n-------------context-------------\n" covered-line)))
-
         ;; this only seems to work with post-command-hook
         (when (and ctx (or (eq last-command 'evil-scroll-line-up)
                            (eq last-command 'scroll-down-line)))
           (forward-line (- (+ (min (- (length ctx) (length prev-ctx)) 0) 1))))
-
         (move-overlay buffer-overlay ol-beg-pos ol-end-pos)
         (overlay-put buffer-overlay 'name 'jason)
         (overlay-put buffer-overlay 'display context-str)
         )
-      (setq prev-ctx ctx))))
+      (setq prev-ctx ctx)))
+  (setq-local prev-window-start (window-start)))
 
 (defun code-context-window-scroll-function (_ display-start)
   (let ((display-start-empty-line-p (save-excursion (goto-char display-start) (looking-at-p "^$"))))
