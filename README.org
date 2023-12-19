@@ -1,0 +1,19 @@
+* code-context-mode
+A minor mode to show code context for code above the window similar to the excellent context.vim plugin.
+
+Using only indentation means we can use this in non treesitter based modes
+
+* Similar packages
+treesitter-context - uses posframe instead of overlays, treesitter
+topsy - one line only
+
+
+* PROJ to be added [0/1]
+** TODO maybe org specific rules
+i.e. stars instead of indentation
+
+** TODO limit the amount of context
+so we don't have half the screen filled with context
+
+** TODO option to use persistent window instead of overlays
+
