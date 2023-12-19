@@ -20,57 +20,51 @@
 ;;; Code:
 ;;;
 
-;; TODO: something weird when trying to scroll past this function from below
-(defun find-non-empty-line-indentation ()
-  "Find the first non-empty line to get current \"scope's\" indentation.
-Limit it to 2 lines back, since it's unlikely there'll be more than 2 consequtive lines of whitespace"
-  (let ((count 0))
-    (while (and (= (current-indentation) 0) (< count 2) (= (line-beginning-position) (line-end-position)))
-      (setq count (+ count 1))
+(defun find-previous-non-empty-line ()
+  ;; empty body cause we basically just do the re-search-backward as part of the loop
+  (while (and (looking-at-p (rx-to-string `(: (* blank) eol)))
+              (re-search-backward (rx-to-string `(: (+ any))) nil t))))
+
+(defun get-context-from (pos)
+  (goto-char pos)
+  (find-previous-non-empty-line)
+  (let ((ctx '())
+        (prev-indentation (current-indentation)))
+    (while (> (current-indentation) 0)
       (forward-line -1)
-      ))
-  (current-indentation))
+      (find-previous-non-empty-line)
+      (when (< (current-indentation) prev-indentation)
+        (setq prev-indentation (current-indentation))
+        (cl-pushnew (buffer-substring-no-properties (line-beginning-position) (line-end-position)) ctx)
+        )
+      )
+    ctx))
 
-;; TODO: fix this up so we don't get context when we're already at 0 indentation (root level
-;; TODO: maybe if we're in prog mode we can be smarter, otherwise we use this dumb way in non-prog mode
-(defun code-context--update-1 ()
-  (goto-char (window-start))
-  (if (= (window-start) (point-min))
-      (setq my-context-alist nil)
-    (let ((curr-context '())
-          (prev-indent (find-non-empty-line-indentation)))
-      (if (> prev-indent 0)
-          (progn
-            (cl-pushnew (buffer-substring-no-properties (line-beginning-position) (line-end-position)) curr-context)
-            (while (> (current-indentation) 0)
-              (when (< (current-indentation) prev-indent)
-                (setq prev-indent (current-indentation))
-                (cl-pushnew (buffer-substring-no-properties (line-beginning-position) (line-end-position)) curr-context))
-              (forward-line -1)
-              (find-non-empty-line-indentation)
-              )
-            (cl-pushnew (buffer-substring-no-properties (line-beginning-position) (line-end-position)) curr-context)
-            (setq my-context-alist curr-context))
-        (remove-overlays (point-min) (point-max) 'name 'jason)))))
-
-;; TODO: my context alist rules need to be set better
-(setq my-context-alist '())
-(setq my-overlay nil)
-
-;; TODO: is it better to keep removing and remaking overlays or have a single one that we move?
+;; TODO: move the save excursions into one parent save excursion maybe
 (defun code-context-single-overlay (display-start)
-  (save-excursion
-    (code-context--update-1))
   (remove-overlays (point-min) (point-max) 'name 'jason)
-  (when my-context-alist
-    (let* ((ol (make-overlay display-start (save-excursion (goto-char display-start) (forward-line) (line-end-position))))
-           (context (cl-reduce (lambda (acc str) (concat acc "\n" str)) my-context-alist)))
-      (setq my-overlay ol)
-      (overlay-put my-overlay 'name 'jason)
-      (overlay-put my-overlay 'display (concat context "\n------------context------------\n")))))
+
+  (let ((ctx (save-excursion (get-context-from display-start))))
+    (when ctx
+      (let* (;; when window start is empty line ov-beg is display start
+             (display-start-empty-line-p (save-excursion (goto-char display-start) (looking-at-p "^$")))
+             (ol-beg-pos display-start ;;(if display-start-empty-line-p (save-excursion (goto-char display-start) (forward-line -1) (line-beginning-position)) display-start)
+             )
+             ;; when window start is empty line, ov-end is end of line after display-start
+             (ol-end-pos (if display-start-empty-line-p (save-excursion (goto-char display-start) (forward-line) (line-end-position)) (save-excursion (goto-char display-start) (line-end-position))))
+             (ol (make-overlay ol-beg-pos ol-end-pos))
+             ;; we need to add the last line into the overlay cause we cover it with the overlay only if the window start is not empty
+             (last-line (if display-start-empty-line-p
+                            (save-excursion (goto-char display-start) (forward-line) (buffer-substring (line-beginning-position) (line-end-position)))
+                          (save-excursion (goto-char display-start) (buffer-substring (line-beginning-position) (line-end-position)))))
+             (context-str-1 (when ctx (cl-reduce (lambda (acc str) (concat acc "\n" str)) ctx :initial-value "")))
+             (context-str (if display-start-empty-line-p context-str-1 context-str-1)))
+        (setq-local buffer-overlay ol)
+        (overlay-put buffer-overlay 'name 'jason)
+        (overlay-put buffer-overlay 'display (concat context-str "\n------------context------------\n" last-line))))))
 
 (defun code-context-window-scroll-function (_ display-start)
-  (when (buffer-file-name) (code-context-single-overlay display-start)))
+  (when (buffer-file-name) (code-context-single-overlay (+ 1 display-start))))
 
 ;;;###autoload
 (define-minor-mode code-context-mode
@@ -86,7 +80,13 @@ Limit it to 2 lines back, since it's unlikely there'll be more than 2 consequtiv
 (provide 'code-context)
 ;;; code-context.el ends here
 
-
+(defun test-function ()
+  (when (buffer-file-name)
+    (progn
+      (let ((x (buffer-name)))
+        (let ((y (buffer-name)))
+          (let ((z (buffer-name)))
+            (message z)))))))
 
 
 
