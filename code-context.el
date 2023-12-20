@@ -51,7 +51,7 @@
              (ol-end-pos (save-excursion (goto-char display-start) (forward-line) (line-end-position)))
              (covered-line (save-excursion (goto-char display-start) (forward-line) (buffer-substring (line-beginning-position) (line-end-position))))
              (context-str-1 (when ctx (cl-reduce (lambda (acc str) (concat acc "\n" str)) ctx)))
-             (_ (set-text-properties 0 (length context-str-1) '(face hl-line) context-str-1))
+             ;; (_ (add-text-properties 0 (length context-str-1) '(face hl-line) context-str-1))
              (context-str (concat context-str-1 "\n-------------context-------------\n" covered-line)))
 
         (unless (boundp 'buffer-overlay) (setq-local buffer-overlay (make-overlay 1 1)))

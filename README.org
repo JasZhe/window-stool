@@ -17,4 +17,7 @@ so we don't have half the screen filled with context
 
 ** DONE option to use persistent window instead of overlays
 
-** TODO clean up
+** TODO disable overlays when multiple windows showing the same buffer
+cause it messes with the overlays a lot
+
+** TODO clean up code
