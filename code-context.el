@@ -43,21 +43,24 @@
 ;; issue where we can't keep scrolling if overlay would move cursor outside of scroll margin
 ;; really only an issue when scrolling up
 (defun code-context-single-overlay (display-start)
-  (let ((ctx (save-excursion (get-context-from display-start))))
-    (add-to-list 'ctx (save-excursion (goto-char display-start) (find-previous-non-empty-line) (buffer-substring (line-beginning-position) (line-end-position))) t)
-    (let* ((display-start-empty-line-p (save-excursion (goto-char display-start) (or (looking-at-p "^$") (looking-at-p "[[:blank:]]*$"))))
-           (ol-beg-pos display-start)
-           (ol-end-pos (save-excursion (goto-char display-start) (forward-line) (line-end-position)))
-           (covered-line (save-excursion (goto-char display-start) (forward-line) (buffer-substring (line-beginning-position) (line-end-position))))
-           (context-str-1 (when ctx (cl-reduce (lambda (acc str) (concat acc "\n" str)) ctx)))
-           (_ (set-text-properties 0 (length context-str-1) '(face hl-line) context-str-1))
-           (context-str (concat context-str-1 "\n-------------context-------------\n" covered-line)))
-      (when buffer-overlay
-        (move-overlay buffer-overlay ol-beg-pos ol-end-pos)
-        (overlay-put buffer-overlay 'name 'jason)
-        (overlay-put buffer-overlay 'display context-str))
-      )
-    (setq prev-ctx ctx))
+  (when (and (buffer-file-name) (not git-commit-mode))
+    (let ((ctx (save-excursion (get-context-from display-start))))
+      (add-to-list 'ctx (save-excursion (goto-char display-start) (find-previous-non-empty-line) (buffer-substring (line-beginning-position) (line-end-position))) t)
+      (let* ((display-start-empty-line-p (save-excursion (goto-char display-start) (or (looking-at-p "^$") (looking-at-p "[[:blank:]]*$"))))
+             (ol-beg-pos display-start)
+             (ol-end-pos (save-excursion (goto-char display-start) (forward-line) (line-end-position)))
+             (covered-line (save-excursion (goto-char display-start) (forward-line) (buffer-substring (line-beginning-position) (line-end-position))))
+             (context-str-1 (when ctx (cl-reduce (lambda (acc str) (concat acc "\n" str)) ctx)))
+             (_ (set-text-properties 0 (length context-str-1) '(face hl-line) context-str-1))
+             (context-str (concat context-str-1 "\n-------------context-------------\n" covered-line)))
+
+        (unless (boundp 'buffer-overlay) (setq-local buffer-overlay (make-overlay 1 1)))
+        (when buffer-overlay
+          (move-overlay buffer-overlay ol-beg-pos ol-end-pos)
+          (overlay-put buffer-overlay 'name 'jason)
+          (overlay-put buffer-overlay 'display context-str))
+        )
+      (setq prev-ctx ctx)))
   (setq-local prev-window-start (window-start)))
 
 ;; this only seems to work with post-command-hook
@@ -71,7 +74,7 @@
 
 (defun code-context-window-scroll-function (_ display-start)
   (let ((display-start-empty-line-p (save-excursion (goto-char display-start) (looking-at-p "^$"))))
-    (when (buffer-file-name)
+    (when (and (buffer-file-name) (not git-commit-mode))
       (code-context-single-overlay display-start)
       )
     )
@@ -94,7 +97,6 @@
       (progn (setq-local prev-ctx nil)
              (setq-local prev-window-start (window-start))
              (remove-overlays (point-min) (point-max) 'name 'jason)
-             (setq-local buffer-overlay (make-overlay 1 1))
              (if code-context-use-overlays
                  (progn
                    (code-context-window-delete nil)
