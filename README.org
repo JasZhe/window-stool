@@ -8,12 +8,13 @@ treesitter-context - uses posframe instead of overlays, treesitter
 topsy - one line only
 
 
-* PROJ to be added [0/1]
+* PROJ to be added [1/4]
 ** TODO maybe org specific rules
 i.e. stars instead of indentation
 
 ** TODO limit the amount of context
 so we don't have half the screen filled with context
 
-** TODO option to use persistent window instead of overlays
+** DONE option to use persistent window instead of overlays
 
+** TODO clean up

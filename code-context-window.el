@@ -27,20 +27,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (setq code-context-window nil)
-(defun code-context-window-create (_ _)
-  (let* ((ctx (save-excursion (get-context-from (window-start))))
-         (buf (get-buffer-create " *Code Context*"))
-         (win (or (get-buffer-window " *Code Context*") (split-window (selected-window) (- (length ctx)) 'above))))
-    (message "window %s" win)
-    (when win
-      (set-window-buffer win buf)
-      (window-resize win (- (length ctx)))
-      (with-current-buffer buf
-        (erase-buffer)
-        (setq mode-line-format nil)
-        (dolist (c ctx) (insert c "\n"))
-        ))
-    )
+(defun code-context-window-create ()
+  (when (not (eq (window-start) prev-window-start))
+    (let* ((ctx (save-excursion (get-context-from (window-start))))
+           (buf (get-buffer-create " *Code Context*"))
+           (win (or (get-buffer-window " *Code Context*") (split-window (selected-window) (- (max (length ctx) window-min-height)) 'above))))
+      (when win
+        (set-window-buffer win buf)
+        (ignore-errors (window-resize win (- (+ 1 (length ctx)) (window-body-height win))))
+        (with-current-buffer buf
+          (erase-buffer)
+          (setq mode-line-format "---------------context---------------")
+          (dolist (c ctx) (insert c "\n"))
+          (when ctx (delete-char -1))
+          ))
+      ))
   )
 
 ;; call windmove up/down again if we switch into the code context window
@@ -57,6 +58,13 @@
   (let ((win (get-buffer-window " *Code Context*")))
     (when win (delete-window win)))
   )
+
+(defun code-context-window-delete (_)
+  (let ((win (get-buffer-window " *Code Context*")))
+    (when win (delete-window win)))
+  )
+
+(add-to-list 'window-selection-change-functions #'code-context-window-delete)
 
 (defun advise-window-functions ()
   (advice-add 'windmove-up :after #'code-context-windmove-up-advice)

@@ -30,7 +30,6 @@
   (find-previous-non-empty-line)
   (let ((ctx '())
         (prev-indentation (current-indentation)))
-    (cl-pushnew (buffer-substring (line-beginning-position) (line-end-position)) ctx)
     (while (> (current-indentation) 0)
       (forward-line -1)
       (find-previous-non-empty-line)
@@ -45,6 +44,7 @@
 ;; really only an issue when scrolling up
 (defun code-context-single-overlay (display-start)
   (let ((ctx (save-excursion (get-context-from display-start))))
+    (add-to-list 'ctx (save-excursion (goto-char display-start) (find-previous-non-empty-line) (buffer-substring (line-beginning-position) (line-end-position))) t)
     (let* ((display-start-empty-line-p (save-excursion (goto-char display-start) (or (looking-at-p "^$") (looking-at-p "[[:blank:]]*$"))))
            (ol-beg-pos display-start)
            (ol-end-pos (save-excursion (goto-char display-start) (forward-line) (line-end-position)))
@@ -63,6 +63,7 @@
 ;; this only seems to work with post-command-hook
 (defun scroll-overlay-into-position ()
   (let ((ctx (save-excursion (get-context-from (window-start)))))
+    (add-to-list 'ctx (save-excursion (goto-char (window-start)) (find-previous-non-empty-line) (buffer-substring (line-beginning-position) (line-end-position))) t)
     (when (not (eq (window-start) prev-window-start))
       (when (and ctx (or (eq last-command 'evil-scroll-line-up)
                          (eq last-command 'scroll-down-line)))
@@ -76,28 +77,38 @@
     )
   )
 
+(defcustom code-context-use-overlays t
+  "whether or not to use overlays or dedicated window"
+  :type '(boolean))
+
+;; TODO: TBD
+(defcustom code-context-max-context 5
+  "Max context lines to display so we don't take up too much space"
+  :type '(natnum))
+
 ;;;###autoload
 (define-minor-mode code-context-mode
   "Minor mode to show code context based on indentation level within the buffer via overlays"
-  :init-value nil
   :lighter " CodeCtx"
   (if code-context-mode
       (progn (setq-local prev-ctx nil)
              (setq-local prev-window-start (window-start))
              (remove-overlays (point-min) (point-max) 'name 'jason)
              (setq-local buffer-overlay (make-overlay 1 1))
-             (add-hook 'post-command-hook (lambda () (scroll-overlay-into-position)) nil t)
-             (add-to-list 'window-scroll-functions #'code-context-window-scroll-function)
-
-             ;; (add-hook 'post-command-hook (lambda () (code-context-create-window nil nil)) nil t)
-             ;; (add-to-list 'window-scroll-functions #'code-context-create-window)
+             (if code-context-use-overlays
+                 (progn
+                   (code-context-window-delete nil)
+                   (add-hook 'post-command-hook (lambda () (scroll-overlay-into-position)) nil t)
+                   (add-to-list 'window-scroll-functions #'code-context-window-scroll-function))
+               (progn
+                 (add-hook 'post-command-hook #'code-context-window-create nil t)
+                 (advise-window-functions)))
              )
     (progn
-      (remove-hook 'post-command-hook (lambda () (scroll-overlay-into-position)))
+      (remove-hook 'post-command-hook (lambda () (scroll-overlay-into-position)) t)
       (setq window-scroll-functions (remove #'code-context-window-scroll-function window-scroll-functions))
-      ;;
-      ;; (setq window-scroll-functions (remove #'code-context-create-window window-scroll-functions))
-      ;; (remove-hook 'post-command-hook (lambda () (code-context-create-window nil nil)))
+      (remove-hook 'post-command-hook #'code-context-window-create t)
+      (code-context-window-delete nil)
       (remove-overlays (point-min) (point-max) 'name 'jason))))
 
 (provide 'code-context)
