@@ -114,6 +114,7 @@
       (setq window-scroll-functions (remove #'code-context-window-scroll-function window-scroll-functions))
       (remove-hook 'post-command-hook #'code-context-window-create t)
       (code-context-window-delete nil)
+      (remove-window-function-advice)
       (remove-overlays (point-min) (point-max) 'name 'jason))))
 
 (provide 'code-context)
