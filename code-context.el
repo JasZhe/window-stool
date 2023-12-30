@@ -48,8 +48,8 @@
 ;; issue where we can't keep scrolling if overlay would move cursor outside of scroll margin
 ;; really only an issue when scrolling up
 (defun code-context-single-overlay (display-start)
-  (let* ((window-bufs (reduce (lambda (acc win) (push (window-buffer win) acc)) (window-list) :initial-value '()))
-        (window-bufs-unique (reduce (lambda (acc win) (cl-pushnew (window-buffer win) acc)) (window-list) :initial-value '()))
+  (let* ((window-bufs (cl-reduce (lambda (acc win) (push (window-buffer win) acc)) (window-list) :initial-value '()))
+        (window-bufs-unique (cl-reduce (lambda (acc win) (cl-pushnew (window-buffer win) acc)) (window-list) :initial-value '()))
         ;; having the same buffer shown in multiple windows gets kinda buggy
         (same-buffer-multiple-windows-p (not (= (length window-bufs) (length window-bufs-unique)))))
     (unless (boundp 'buffer-overlay) (setq-local buffer-overlay (make-overlay 1 1)))
@@ -89,7 +89,7 @@
 
 (defun code-context-window-scroll-function (_ display-start)
   (let ((display-start-empty-line-p (save-excursion (goto-char display-start) (looking-at-p "^$"))))
-    (when (and (buffer-file-name) (not git-commit-mode))
+    (when (and (buffer-file-name) (or (not (boundp 'git-commit-mode)) (not git-commit-mode)))
       (code-context-single-overlay display-start)
       )
     )
