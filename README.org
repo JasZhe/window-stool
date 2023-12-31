@@ -1,23 +1,40 @@
-* code-context-mode
+* window-stool-mode
 A minor mode to show code context for code above the window similar to the excellent context.vim plugin.
+Like a little stool for your window that you can use to view stuff in the buffer above the window.
 
-Using only indentation means we can use this in non treesitter based modes
+Using only indentation means we can use this in non treesitter based modes as well, but I'm not
+against adding some treesitter support (I just need to find time to dig into the treesitter api)
+
+It can be a little janky at times, since I had to do some hacky things with overlays since headerline doesn't
+support multiple lines. It works pretty well with my usage of mostly golang and elisp of course.
+
+** Motivation
+I really liked context.vim when I was using vim and I couldn't really find something that fit exactly.
+There's which-function-mode and lsp-breadcrumbs as well as topsy that I tried, all amazing in their own right
+but I wanted something to call my own and to scratch that itch.
+
+* Installation
+
+* Screenshot/Video
 
 * Similar packages
 treesitter-context - uses posframe instead of overlays, treesitter
 topsy - one line only
 
+* Contributing
+Any feedback via the issues tab would be appreciated :) 
 
-* PROJ to be added [1/4]
-** TODO maybe org specific rules
+* PROJ to be added [3/5]
+** TODO maybe org/markdown specific rules
 i.e. stars instead of indentation
 
-** TODO limit the amount of context
+** TODO ability for users to use their own rules for modes they specify
+
+** DONE limit the amount of context
 so we don't have half the screen filled with context
 
-** DONE option to use persistent window instead of overlays
+** TODO clean up code [0/1]
+*** DONE rename to something better than code-context
+Window-stool is kinda cute
 
-** TODO disable overlays when multiple windows showing the same buffer
-cause it messes with the overlays a lot
-
-** TODO clean up code
+*** TODO follow convention for -- as internal functions
