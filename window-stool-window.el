@@ -15,8 +15,13 @@
 ;; This file is not part of GNU Emacs.
 ;;
 ;;; Commentary:
+;; Sort of experimental, I much prefer the overlays but I played around with having a "dedicated" window
+;; for this in my head.
 ;;
-;;  Description
+;;; Description:
+;; Window stool using an actual window instead of overlays with some convenience advice
+;; to various window switching functions to allow "skipping" the window stool
+;; if, for example, we have two real windows on top of each other.
 ;;
 ;;; Code:
 
