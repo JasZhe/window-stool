@@ -13,9 +13,16 @@
 ;;
 ;; This file is not part of GNU Emacs.
 ;;
-;;; Commentary:
+;;; Commentary
+;; Like a little "stool" for your window viewing needs
 ;;
 ;;  Description
+;; Uses an overlay that moves when the window is scrolled to take over the first
+;; two lines (one line gets a little buggy when it comes to scrolling) to show
+;; indentation based (default but can define other methods) buffer context
+;;
+;; Works best if you have some sort of scroll margin, cause editing the overlay text
+;; can get wonky.
 ;;
 ;;; Code:
 ;;;
@@ -96,13 +103,15 @@
   )
 
 (defcustom window-stool-use-overlays t
-  "whether or not to use overlays or dedicated window"
+  "whether or not to use overlays or dedicated window (EXPERIMENTAL)"
   :type '(boolean))
 
 (defcustom window-stool-truncate-from-bottom t
   "If window-stool-max-context is not 0, choose whether to truncate context from the top or the bottom"
   :type '(boolean))
 
+;; TODO ability to specify x lines of "top" context and y lines of context from the "bottom"
+;; This way we can always have the defun showing, but showing the inner most other context
 (defcustom window-stool-max-context 5
   "Max context lines to display so we don't take up too much space or 0 to show all context"
   :type '(natnum))
@@ -126,9 +135,11 @@ Otherwise defautls to the indentation based context function."
       (progn (setq-local prev-ctx nil)
              (setq-local prev-window-start (window-start))
              (remove-overlays (point-min) (point-max) 'type 'window-stool-buffer-overlay)
-
+	     
              (setq window-stool-fn (cdr (or (assq major-mode window-stool-major-mode-functions-alist)
                                             (assq nil window-stool-major-mode-functions-alist))))
+
+	     ;; TODO set scroll margin to be at least max-context if curr scroll margin less
              (if window-stool-use-overlays
                  (progn
                    (window-stool-window-delete nil)
