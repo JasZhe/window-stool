@@ -1,4 +1,4 @@
-;;; code-context.el --- Description -*- lexical-binding: t; -*-
+;;; window-stool.el --- Description -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (C) 2023 Jason Zhen
 ;;
@@ -7,8 +7,8 @@
 ;; Created: December 16, 2023
 ;; Modified: December 16, 2023
 ;; Version: 0.0.1
-;; Keywords: abbrev bib c calendar comm convenience data docs emulations extensions faces files frames games hardware help hypermedia i18n internal languages lisp local maint mail matching mouse multimedia news outlines processes terminals tex tools unix vc wp
-;; Homepage: https://github.com/jasonzhen/code-context
+;; Keywords: context overlay
+;; Homepage: https://github.com/jasonzhen/window-stool
 ;; Package-Requires: ((emacs "24.3"))
 ;;
 ;; This file is not part of GNU Emacs.
@@ -20,14 +20,14 @@
 ;;; Code:
 ;;;
 
-(defun code-context-find-prev-non-empty-line ()
+(defun window-stool-find-prev-non-empty-line ()
   ;; empty body cause we basically just do the re-search-backward as part of the loop
   (while (and (looking-at-p (rx-to-string `(: (* blank) eol)))
               (re-search-backward (rx-to-string `(: (+ any))) nil t))))
 
-(defun code-context-get-indentation-context-from (pos)
+(defun window-stool-get-indentation-context-from (pos)
   (goto-char pos)
-  (code-context-find-prev-non-empty-line)
+  (window-stool-find-prev-non-empty-line)
   (let ((ctx '())
         (prev-indentation (current-indentation)))
     (let ((ctx-str (concat (buffer-substring (line-beginning-position) (line-end-position)) "\n")))
@@ -35,7 +35,7 @@
           (cl-pushnew ctx-str ctx))
     (while (> (current-indentation) 0)
       (forward-line -1)
-      (code-context-find-prev-non-empty-line)
+      (window-stool-find-prev-non-empty-line)
       (when (< (current-indentation) prev-indentation)
         (setq prev-indentation (current-indentation))
         (let ((ctx-str (concat (buffer-substring (line-beginning-position) (line-end-position)) "\n")))
@@ -47,7 +47,7 @@
 
 ;; issue where we can't keep scrolling if overlay would move cursor outside of scroll margin
 ;; really only an issue when scrolling up
-(defun code-context-single-overlay (display-start)
+(defun window-stool-single-overlay (display-start)
   (let* ((window-bufs (cl-reduce (lambda (acc win) (push (window-buffer win) acc)) (window-list) :initial-value '()))
         (window-bufs-unique (cl-reduce (lambda (acc win) (cl-pushnew (window-buffer win) acc)) (window-list) :initial-value '()))
         ;; having the same buffer shown in multiple windows gets kinda buggy
@@ -57,10 +57,10 @@
         (delete-overlay buffer-overlay)
       (progn
         (when (and (buffer-file-name) (not (string-match "\\.git" (buffer-file-name))))
-          (let ((ctx (save-excursion (funcall code-context-fn display-start))))
-            (when (and ctx (> code-context-max-context 0))
-              (let* ((end-pos (min (length ctx) code-context-max-context)))
-                (if code-context-truncate-from-bottom
+          (let ((ctx (save-excursion (funcall window-stool-fn display-start))))
+            (when (and ctx (> window-stool-max-context 0))
+              (let* ((end-pos (min (length ctx) window-stool-max-context)))
+                (if window-stool-truncate-from-bottom
                     (setq ctx (cl-subseq ctx 0 end-pos))
                   (setq ctx (cl-subseq ctx (- end-pos))))))
             (let* ((display-start-empty-line-p (save-excursion (goto-char display-start) (or (looking-at-p "^$") (looking-at-p "[[:blank:]]*$"))))
@@ -68,84 +68,84 @@
                    (ol-end-pos (save-excursion (goto-char display-start) (forward-line) (line-end-position)))
                    (covered-line (save-excursion (goto-char display-start) (forward-line) (buffer-substring (line-beginning-position) (line-end-position))))
                    (context-str-1 (when ctx (cl-reduce (lambda (acc str) (concat acc str)) ctx)))
-                   (context-str (concat context-str-1 "-------------context-------------\n" covered-line)))
+                   (context-str (concat context-str-1 covered-line)))
 
               (when buffer-overlay
                 (move-overlay buffer-overlay ol-beg-pos ol-end-pos)
-                (overlay-put buffer-overlay 'type 'code-context-buffer-overlay)
+                (overlay-put buffer-overlay 'type 'window-stool-buffer-overlay)
                 (overlay-put buffer-overlay 'display context-str))
               )
             (setq prev-ctx ctx))))))
   (setq-local prev-window-start (window-start)))
 
 ;; this only seems to work with post-command-hook
-(defun code-context-scroll-overlay-into-position ()
+(defun window-stool-scroll-overlay-into-position ()
 
-  (let ((ctx (save-excursion (funcall code-context-fn (window-start)))))
+  (let ((ctx (save-excursion (funcall window-stool-fn (window-start)))))
     (when (not (eq (window-start) prev-window-start))
       (when (and ctx (or (eq last-command 'evil-scroll-line-up)
                          (eq last-command 'scroll-down-line)))
         (forward-line (- (+ (min (- (length ctx) (length prev-ctx)) 0) 1)))))))
 
-(defun code-context-window-scroll-function (_ display-start)
+(defun window-stool-window-scroll-function (_ display-start)
   (let ((display-start-empty-line-p (save-excursion (goto-char display-start) (looking-at-p "^$"))))
     (when (and (buffer-file-name) (or (not (boundp 'git-commit-mode)) (not git-commit-mode)))
-      (code-context-single-overlay display-start)
+      (window-stool-single-overlay display-start)
       )
     )
   )
 
-(defcustom code-context-use-overlays t
+(defcustom window-stool-use-overlays t
   "whether or not to use overlays or dedicated window"
   :type '(boolean))
 
-(defcustom code-context-truncate-from-bottom t
-  "If code-context-max-context is not 0, choose whether to truncate context from the top or the bottom"
+(defcustom window-stool-truncate-from-bottom t
+  "If window-stool-max-context is not 0, choose whether to truncate context from the top or the bottom"
   :type '(boolean))
 
-(defcustom code-context-max-context 5
+(defcustom window-stool-max-context 5
   "Max context lines to display so we don't take up too much space or 0 to show all context"
   :type '(natnum))
 
 
-(defcustom code-context-major-mode-functions-alist '((nil . code-context-get-indentation-context-from))
+(defcustom window-stool-major-mode-functions-alist '((nil . window-stool-get-indentation-context-from))
   "A list of (major-mode . function) for specialized context functions to use in major modes.
 Each function should take one argument, the point to search from.
 Otherwise defautls to the indentation based context function."
   :type '(alist :key-type symbol :value-type function))
 
 
-(defvar code-context-fn nil
+(defvar window-stool-fn nil
   "Function that returns the context in a buffer from point")
 
 ;;;###autoload
-(define-minor-mode code-context-mode
+(define-minor-mode window-stool-mode
   "Minor mode to show code context based on indentation level within the buffer via overlays"
-  :lighter " CodeCtx"
-  (if code-context-mode
+  :lighter " WinStool"
+  (if window-stool-mode
       (progn (setq-local prev-ctx nil)
              (setq-local prev-window-start (window-start))
-             (remove-overlays (point-min) (point-max) 'type 'code-context-buffer-overlay)
+             (remove-overlays (point-min) (point-max) 'type 'window-stool-buffer-overlay)
 
-             (setq code-context-fn (cdr (or (assq major-mode code-context-major-mode-functions-alist)
-                                            (assq nil code-context-major-mode-functions-alist))))
-             (if code-context-use-overlays
+             (setq window-stool-fn (cdr (or (assq major-mode window-stool-major-mode-functions-alist)
+                                            (assq nil window-stool-major-mode-functions-alist))))
+             (if window-stool-use-overlays
                  (progn
-                   (code-context-window-delete nil)
-                   (add-hook 'post-command-hook (lambda () (code-context-scroll-overlay-into-position)) nil t)
-                   (add-to-list 'window-scroll-functions #'code-context-window-scroll-function))
+                   (window-stool-window-delete nil)
+                   (add-hook 'post-command-hook (lambda () (window-stool-scroll-overlay-into-position)) nil t)
+                   (add-to-list 'window-scroll-functions #'window-stool-window-scroll-function))
                (progn
-                 (add-hook 'post-command-hook #'code-context-window-create nil t)
+                 (add-hook 'post-command-hook #'window-stool-window-create nil t)
                  (advise-window-functions)))
              )
     (progn
-      (remove-hook 'post-command-hook (lambda () (code-context-scroll-overlay-into-position)) t)
-      (setq window-scroll-functions (remove #'code-context-window-scroll-function window-scroll-functions))
-      (remove-hook 'post-command-hook #'code-context-window-create t)
-      (code-context-window-delete nil)
+      (remove-hook 'post-command-hook (lambda () (window-stool-scroll-overlay-into-position)) t)
+      (setq window-scroll-functions (remove #'window-stool-window-scroll-function window-scroll-functions))
+      (remove-hook 'post-command-hook #'window-stool-window-create t)
+      (window-stool-window-delete nil)
       (remove-window-function-advice)
-      (remove-overlays (point-min) (point-max) 'type 'code-context-buffer-overlay))))
+      (remove-overlays (point-min) (point-max) 'type 'window-stool-buffer-overlay))))
 
-(provide 'code-context)
-(add-hook 'prog-mode-hook #'code-context-mode)
-;;; code-context.el ends here
+(provide 'window-stool)
+(add-hook 'prog-mode-hook #'window-stool-mode)
+;;; window-stool.el ends here
