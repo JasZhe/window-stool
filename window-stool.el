@@ -52,9 +52,9 @@
         (window-bufs-unique (cl-reduce (lambda (acc win) (cl-pushnew (window-buffer win) acc)) (window-list) :initial-value '()))
         ;; having the same buffer shown in multiple windows gets kinda buggy
         (same-buffer-multiple-windows-p (not (= (length window-bufs) (length window-bufs-unique)))))
-    (unless (boundp 'buffer-overlay) (setq-local buffer-overlay (make-overlay 1 1)))
+    (unless (boundp 'window-stool-overlay) (setq-local window-stool-overlay (make-overlay 1 1)))
     (if (or (eq display-start (point-min)) same-buffer-multiple-windows-p)
-        (delete-overlay buffer-overlay)
+        (delete-overlay window-stool-overlay)
       (progn
         (when (and (buffer-file-name) (not (string-match "\\.git" (buffer-file-name))))
           (let ((ctx (save-excursion (funcall window-stool-fn display-start))))
@@ -70,10 +70,10 @@
                    (context-str-1 (when ctx (cl-reduce (lambda (acc str) (concat acc str)) ctx)))
                    (context-str (concat context-str-1 covered-line)))
 
-              (when buffer-overlay
-                (move-overlay buffer-overlay ol-beg-pos ol-end-pos)
-                (overlay-put buffer-overlay 'type 'window-stool-buffer-overlay)
-                (overlay-put buffer-overlay 'display context-str))
+              (when window-stool-overlay
+                (move-overlay window-stool-overlay ol-beg-pos ol-end-pos)
+                (overlay-put window-stool-overlay 'type 'window-stool-window-stool-overlay)
+                (overlay-put window-stool-overlay 'display context-str))
               )
             (setq prev-ctx ctx))))))
   (setq-local prev-window-start (window-start)))
