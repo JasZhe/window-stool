@@ -233,9 +233,12 @@ See: \"window-stool-use-overlays\""
                  (add-hook 'post-command-hook #'window-stool-window--create nil t)
                  (window-stool-window--advise-window-functions)))
              )
-    (progn (remove-hook 'post-command-hook (lambda () (window-stool--scroll-overlay-into-position)) t)
+    (progn (remove-hook 'post-command-hook
+			(lambda () (window-stool--scroll-overlay-into-position)) t)
 	   (kill-local-variable 'scroll-margin)
-	   (setq window-scroll-functions (remove #'window-stool--scroll-function window-scroll-functions))
+	   (setq window-scroll-functions
+		 (remove #'window-stool--scroll-function window-scroll-functions))
+	   (remove-overlays (point-min) (point-max) 'type 'window-stool-buffer-overlay)
 	   (remove-hook 'post-command-hook #'window-stool-window--create t)
 	   (window-stool-window--delete nil)
 	   (window-stool-window--remove-window-function-advice)
