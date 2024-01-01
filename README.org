@@ -40,11 +40,11 @@ Add a hook to prog-mode (or any other mode) with a use-package config
 
 
 * Screenshot/Video
-[[file:screenshots/without-overlay.png][Window stool disabled]]
+[[file:screenshots/without-overlay.png]]
 
-[[file:screenshots/with-overlay.png][Window stool enabled]]
+[[file:screenshots/with-overlay.png]]
 
-[[file:screenshots/demo.mov][Demo]]
+[[file:screenshots/demo.mov]]
 
 * Similar packages
 treesitter-context - uses posframe instead of overlays, treesitter
