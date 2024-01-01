@@ -44,7 +44,7 @@ Add a hook to prog-mode (or any other mode) with a use-package config
 
 [[file:screenshots/with-overlay.png]]
 
-[[file:screenshots/demo.mov]]
+[[file:screenshots/demo.gif]]
 
 * Similar packages
 treesitter-context - uses posframe instead of overlays, treesitter
