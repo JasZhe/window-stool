@@ -15,7 +15,36 @@ but I wanted something to call my own and to scratch that itch.
 
 * Installation
 
+With emacs 29 we have built in package-vc-install
+#+begin_src elisp
+  (package-vc-install "https://github.com/JasZhe/window-stool")
+#+end_src
+
+With straight:
+#+begin_src elisp
+  (straight-use-package
+   '(window-stool :type git :host github :repo "jaszhe/window-stool"))
+#+end_src
+
+With doom:
+#+begin_src elisp
+  (package! window-stool :recipe (:host github :repo "jaszhe/window-stool" :files ("*.el")))
+#+end_src
+
+Add a hook to prog-mode (or any other mode) with a use-package config
+#+begin_src elisp
+  (use-package window-stool
+    :config
+    (add-hook 'prog-mode-hook #'window-stool-mode))
+#+end_src
+
+
 * Screenshot/Video
+[[file:screenshots/without-overlay.png][Window stool disabled]]
+
+[[file:screenshots/with-overlay.png][Window stool enabled]]
+
+[[file:screenshots/demo.mov][Demo]]
 
 * Similar packages
 treesitter-context - uses posframe instead of overlays, treesitter
@@ -24,17 +53,7 @@ topsy - one line only
 * Contributing
 Any feedback via the issues tab would be appreciated :) 
 
-* PROJ to be added [3/5]
+* TODO [0/1]
 ** TODO maybe org/markdown specific rules
 i.e. stars instead of indentation
 
-** TODO ability for users to use their own rules for modes they specify
-
-** DONE limit the amount of context
-so we don't have half the screen filled with context
-
-** TODO clean up code [0/1]
-*** DONE rename to something better than code-context
-Window-stool is kinda cute
-
-*** TODO follow convention for -- as internal functions
