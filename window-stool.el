@@ -86,19 +86,25 @@ Defaults to indentation based context function."
   "Get indentation based context from POS."
   (goto-char pos)
   (window-stool-find-prev-non-empty-line)
-  (let ((ctx '())
-        (prev-indentation (current-indentation)))
-    (let ((ctx-str (concat (buffer-substring (line-beginning-position) (line-end-position)) "\n")))
-      ;; Need to add the current line that pos is on as well cause there's some weird issues
-      ;; if we have an empty context
-      (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
-      (cl-pushnew ctx-str ctx))
+  (let* ((ctx '())
+         (prev-indentation (current-indentation))
+	 (ctx-fn (lambda ()
+		   (concat
+		    (buffer-substring
+		     (line-beginning-position)
+		     (line-end-position))
+		    "\n")))
+	 (ctx-str (funcall ctx-fn)))
+    ;; Need to add the current line that pos is on as well cause there's some weird issues
+    ;; if we have an empty context
+    (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
+    (cl-pushnew ctx-str ctx)
     (while (> (current-indentation) 0)
       (forward-line -1)
       (window-stool-find-prev-non-empty-line)
       (when (< (current-indentation) prev-indentation)
         (setq prev-indentation (current-indentation))
-        (let ((ctx-str (concat (buffer-substring (line-beginning-position) (line-end-position)) "\n")))
+        (let ((ctx-str (funcall ctx-fn)))
           (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
           (cl-pushnew ctx-str ctx))
         )
@@ -138,10 +144,18 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
           (let* ((ctx-1 (save-excursion (funcall window-stool-fn display-start)))
 		 (ctx (window-stool--truncate-context ctx-1)))
             (let* ((ol-beg-pos display-start)
-                   (ol-end-pos (save-excursion (goto-char display-start) (forward-line) (line-end-position)))
+                   (ol-end-pos (save-excursion
+				 (goto-char display-start)
+				 (forward-line)
+				 (line-end-position)))
 		   ;; There's some bugginess if we don't have end-pos be on the next line, cause depending on the order of operations we might scroll past our overlay after redisplay.
 		   ;; The solution here is to make the overlay 2 lines and just show the "covered" second line as part of the overlay
-                   (covered-line (save-excursion (goto-char display-start) (forward-line) (buffer-substring (line-beginning-position) (line-end-position))))
+                   (covered-line (save-excursion
+				   (goto-char display-start)
+				   (forward-line)
+				   (buffer-substring
+				    (line-beginning-position)
+				    (line-end-position))))
                    (context-str-1 (when ctx (cl-reduce (lambda (acc str) (concat acc str)) ctx)))
                    (context-str (concat context-str-1 covered-line)))
 
