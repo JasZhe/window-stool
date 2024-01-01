@@ -109,12 +109,12 @@ Defaults to indentation based context function."
   "Truncates CTX.
 See: doc for \"window-stool-n-from-top\".
 Just returns CTX if both are 0."
-  (if (and (> window-stool-n-from-top 0) (> window-stool-n-from-bottom 0))
+  (if (or (> window-stool-n-from-top 0) (> window-stool-n-from-bottom 0))
       (let* ((from-top (min (length ctx) window-stool-n-from-top))
 	     (top-ctx (cl-subseq ctx 0 from-top))
 	     (ctx-1 (nthcdr from-top ctx))
 	     (from-bottom (min (length ctx-1) window-stool-n-from-bottom))
-	     (bottom-ctx (cl-subseq ctx-1 (- from-bottom))))
+	     (bottom-ctx (when (> from-bottom 0) (cl-subseq ctx-1 (- from-bottom)))))
 	(append top-ctx bottom-ctx))
     ctx
     )
