@@ -175,7 +175,18 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
       (when (and ctx (or (eq last-command 'evil-scroll-line-up)
 			 (eq last-command 'viper-scroll-down-one)
                          (eq last-command 'scroll-down-line)))
-        (forward-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))))))
+	(forward-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
+
+	;; So we don't need to double scroll when window start is in the middle of a visual line split
+	(when (= (save-excursion
+		   (goto-char (window-start))
+		   (line-beginning-position))
+		 (save-excursion
+		   (goto-char (window-start))
+		   (line-move-visual -1 t)
+		   (line-beginning-position)))
+	    (scroll-down-line))
+	))))
 
 (defun window-stool--scroll-function (_ display-start)
   "Convenience wrapper for \"window-scroll-functions\".
