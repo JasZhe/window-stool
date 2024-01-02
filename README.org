@@ -8,6 +8,10 @@ against adding some treesitter support (I just need to find time to dig into the
 It can be a little janky at times, since I had to do some hacky things with overlays since headerline doesn't
 support multiple lines. It works pretty well with my usage of mostly golang and elisp of course.
 
+Also has some support for org mode as well.
+
+Primarily tested on emacs29 with doom and with vanilla.
+
 ** Motivation
 I really liked context.vim when I was using vim and I couldn't really find something that fit exactly.
 There's which-function-mode and lsp-breadcrumbs as well as topsy that I tried, all amazing in their own right
@@ -38,6 +42,18 @@ Add a hook to prog-mode (or any other mode) with a use-package config
     (add-hook 'prog-mode-hook #'window-stool-mode))
 #+end_src
 
+* Customization options
+=window-stool-face= - the overlay will inherit this face if you want to change from the default =fringe= inheritance with =:extend t=
+
+=window-stool-n-from-top= and =window-stool-n-from-bottom= - optionally limit the amount of context to show. The default is to take the first context line from the outer most context, (this is usually the function signature, for example) and then 2 lines of the inner most context (like the most recent if statement you just passed by)
+
+=window-stool-major-mode-functions-alist= - a list of (major-mode . function) for specific context rules outside of the basic indentation based one. An org one is provided as an example (although feel free to change it).
+Note: I would still classify this as somewhat experimental. I do think the current contract for this makes sense (it just returns a list of strings) but there is a small chance this might change if I get some feedback about it.
+
+=window-stool-use-overlays= - EXPERIMENTAL: the default is to use overlays, and that's also my personal preference. There probably won't be too much work on this option unless there's desire from users.
+Instead of an overlay, a minimally sized window will be shown at the top of the currently selected window that houses the context. For the sake of complexity, only one of these context windows can exist.
+Also note, that this will add some advice to some window movement commands so that we can "skip" over the context window, in the case where you have windows on top of each other. 
+
 
 * Screenshot/Video
 [[file:screenshots/without-overlay.png]]
@@ -46,9 +62,16 @@ Add a hook to prog-mode (or any other mode) with a use-package config
 
 [[file:screenshots/demo.gif]]
 
-* Similar packages
-treesitter-context - uses posframe instead of overlays, treesitter
-topsy - one line only
+* Related packages
+Most of the alternatives use a single line, but they're also probably much more performant than this package.
+
+treesitter-context
+
+topsy/org-sticky-header
+
+lsp-mode's headerline breadcrumbs
+
+eglot author's breadcrumb mode
 
 * Contributing
 Any feedback via the issues tab would be appreciated :) 
