@@ -30,6 +30,7 @@
 ;;;
 (require 'cl-lib)
 (require 'window-stool-window)
+(require 'org)
 
 (defgroup window-stool nil
   "A minor mode for providing some additional buffer context via overlays."
@@ -64,7 +65,9 @@ Setting both of these to zero keeps all context."
 See: \"window-stool-n-from-top\"."
   :type '(natnum))
 
-(defcustom window-stool-major-mode-functions-alist '((nil . window-stool-get-indentation-context-from))
+(defcustom window-stool-major-mode-functions-alist
+  '((org-mode . window-stool-get-org-header-context)
+    (nil . window-stool-get-indentation-context-from))
   "A list of (major-mode . function).
 Each function should take one argument, the point to search from.
 Each function should return a list of strings.
@@ -76,6 +79,41 @@ Defaults to indentation based context function."
 (defvar window-stool-fn nil
   "Function that returns the context in a buffer from point.")
 
+(defun window-stool-get-org-header-context (pos)
+  "Get org header contexts from POS.
+Will move point so caller should call \"save-excursion\"."
+  (goto-char pos)
+  (outline-back-to-heading)
+
+  ;; When indent mode is on, display-start for the overlay is indented. The issue is then
+  ;; the first line of the context will match the indent level of org, but the rest of the
+  ;; headings will have their normal indents.
+  ;; Instead we propertize manually by grabbing the org-level-faces manually
+  (let* ((ctx '())
+	 (ctx-fn (lambda ()
+		   (concat
+		    (buffer-substring-no-properties
+		     (line-beginning-position)
+		     (line-end-position))
+		    "\n")))
+	 (ctx-str (propertize
+		   (funcall ctx-fn)
+		   'face
+		   (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
+    (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
+    (cl-pushnew ctx-str ctx)
+    (while (> (org-current-level) 1)
+      (outline-up-heading 1)
+      (let ((ctx-str (propertize
+		   (funcall ctx-fn)
+		   'face
+		   (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
+	(add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
+	(cl-pushnew ctx-str ctx)
+	)
+      )
+    ctx))
+
 (defun window-stool-find-prev-non-empty-line ()
   "Find non-empty line above from point."
   ;; empty body cause we basically just do the re-search-backward as part of the loop
@@ -83,7 +121,10 @@ Defaults to indentation based context function."
               (re-search-backward (rx-to-string `(: (+ any))) nil t))))
 
 (defun window-stool-get-indentation-context-from (pos)
-  "Get indentation based context from POS."
+  "Get indentation based context from POS.
+Returns a list of fontified strings with newlines at the end.
+Strings will also inherit props of \"window-stool-face\".
+Will move point so caller should call \"save-excursion\"."
   (goto-char pos)
   (window-stool-find-prev-non-empty-line)
   (let* ((ctx '())
@@ -195,8 +236,7 @@ See: \"window-stool-single-overlay\"."
   (when (and (buffer-file-name)
 	     (or (not (boundp 'git-commit-mode))
 		 (not git-commit-mode)))
-    (window-stool-single-overlay display-start))
-  )
+    (window-stool-single-overlay display-start)))
 
 ;;;###autoload
 (define-minor-mode window-stool-mode
@@ -216,8 +256,9 @@ See: \"window-stool-use-overlays\""
              (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
 
 	     
-             (setq window-stool-fn (cdr (or (assq major-mode window-stool-major-mode-functions-alist)
-                                            (assq nil window-stool-major-mode-functions-alist))))
+             (setq-local window-stool-fn
+			 (cdr (or (assq major-mode window-stool-major-mode-functions-alist)
+                                  (assq nil window-stool-major-mode-functions-alist))))
 
 	     ;; set buffer local scroll margin to avoid strange behavior when putting point into the overlay itself
 	     ;; since the overlay encompasses a lot less real text than the virtual text it actually shows

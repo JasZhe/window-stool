@@ -52,8 +52,3 @@ topsy - one line only
 
 * Contributing
 Any feedback via the issues tab would be appreciated :) 
-
-* TODO [0/1]
-** TODO maybe org/markdown specific rules
-i.e. stars instead of indentation
-
