@@ -40,7 +40,7 @@
   '((t (:inherit fringe :extend t)))
   "Face for window stool overlay background.
 This will be ADDED to the context string's existing buffer font locking."
-  :group window-stool-mode)
+  :group 'window-stool)
 
 (defcustom window-stool-use-overlays t
   "Whether or not to use overlays or dedicated window (EXPERIMENTAL)."
@@ -83,36 +83,38 @@ Defaults to indentation based context function."
   "Get org header contexts from POS.
 Will move point so caller should call \"save-excursion\"."
   (goto-char pos)
-  (outline-back-to-heading)
+  (when (not (org-before-first-heading-p))
 
-  ;; When indent mode is on, display-start for the overlay is indented. The issue is then
-  ;; the first line of the context will match the indent level of org, but the rest of the
-  ;; headings will have their normal indents.
-  ;; Instead we propertize manually by grabbing the org-level-faces manually
-  (let* ((ctx '())
-	 (ctx-fn (lambda ()
-		   (concat
-		    (buffer-substring-no-properties
-		     (line-beginning-position)
-		     (line-end-position))
-		    "\n")))
-	 (ctx-str (propertize
-		   (funcall ctx-fn)
-		   'face
-		   (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
-    (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
-    (cl-pushnew ctx-str ctx)
-    (while (> (org-current-level) 1)
-      (outline-up-heading 1)
-      (let ((ctx-str (propertize
-		   (funcall ctx-fn)
-		   'face
-		   (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
-	(add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
-	(cl-pushnew ctx-str ctx)
-	)
-      )
-    ctx))
+    (outline-back-to-heading)
+
+    ;; When indent mode is on, display-start for the overlay is indented. The issue is then
+    ;; the first line of the context will match the indent level of org, but the rest of the
+    ;; headings will have their normal indents.
+    ;; Instead we propertize manually by grabbing the org-level-faces manually
+    (let* ((ctx '())
+	   (ctx-fn (lambda ()
+		     (concat
+		      (buffer-substring-no-properties
+		       (line-beginning-position)
+		       (line-end-position))
+		      "\n")))
+	   (ctx-str (propertize
+		     (funcall ctx-fn)
+		     'face
+		     (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
+      (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
+      (cl-pushnew ctx-str ctx)
+      (while (> (org-current-level) 1)
+        (outline-up-heading 1)
+        (let ((ctx-str (propertize
+		        (funcall ctx-fn)
+		        'face
+		        (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
+	  (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
+	  (cl-pushnew ctx-str ctx)
+	  )
+        )
+      ctx)))
 
 (defun window-stool-find-prev-non-empty-line ()
   "Find non-empty line above from point."
@@ -250,6 +252,7 @@ CAUTION: This can have some major performance impact on scrolling.
 EXPERIMENTAL: alternative option to use a pseudo-dedicated window.
 See: \"window-stool-use-overlays\""
   :lighter " WinStool"
+  :group 'window-stool
   (if window-stool-mode
       (progn (setq-local window-stool--prev-ctx nil)
              (setq-local window-stool--prev-window-start (window-start))
