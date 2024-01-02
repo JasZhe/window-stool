@@ -173,11 +173,10 @@ Just returns CTX if both are 0."
   "Create/move an overlay to show buffer context above DISPLAY-START.
 Single overlay per buffer.
 Contents of the overlay is based on the results of \"window-stool-fn\"."
-
   ;; Issue with having multiple windows displaying the same buffer since now there's multiple "window starts" which make it difficult to deal with. Simpler to temporarily delete the overlays until only a single window shows the buffer for now.
   (let* ((window-bufs (cl-reduce (lambda (acc win) (push (window-buffer win) acc)) (window-list) :initial-value '()))
-        (window-bufs-unique (cl-reduce (lambda (acc win) (cl-pushnew (window-buffer win) acc)) (window-list) :initial-value '()))
-        (same-buffer-multiple-windows-p (not (= (length window-bufs) (length window-bufs-unique)))))
+         (window-bufs-unique (cl-reduce (lambda (acc win) (cl-pushnew (window-buffer win) acc)) (window-list) :initial-value '()))
+         (same-buffer-multiple-windows-p (not (= (length window-bufs) (length window-bufs-unique)))))
     (unless (boundp 'window-stool-overlay) (setq-local window-stool-overlay (make-overlay 1 1)))
     (if (or (eq display-start (point-min)) same-buffer-multiple-windows-p)
         (delete-overlay window-stool-overlay)
@@ -205,6 +204,7 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
               (when window-stool-overlay
                 (move-overlay window-stool-overlay ol-beg-pos ol-end-pos)
                 (overlay-put window-stool-overlay 'type 'window-stool--buffer-overlay)
+                (overlay-put window-stool-overlay 'priority 100)
                 (overlay-put window-stool-overlay 'display context-str))
               )
             (setq window-stool--prev-ctx ctx))))))
@@ -238,7 +238,11 @@ See: \"window-stool-single-overlay\"."
   (when (and (buffer-file-name)
 	     (or (not (boundp 'git-commit-mode))
 		 (not git-commit-mode)))
-    (window-stool-single-overlay display-start)))
+
+    ;; for org mode, if we hide the font decoration symbols for instance:
+    ;; *This is bold* then display-start would point to the "T" instead of
+    ;; the first "*" and (scroll-down 1) would complain about beginning of buffer
+    (window-stool-single-overlay (save-excursion (goto-char display-start) (line-beginning-position)))))
 
 ;;;###autoload
 (define-minor-mode window-stool-mode
