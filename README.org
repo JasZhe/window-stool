@@ -6,7 +6,9 @@ Using only indentation means we can use this in non treesitter based modes as we
 against adding some treesitter support (I just need to find time to dig into the treesitter api)
 
 It can be a little janky at times, since I had to do some hacky things with overlays since headerline doesn't
-support multiple lines. It works pretty well with my usage of mostly golang and elisp of course.
+support multiple lines. Essentially on every scroll, we have to move the overlay to go back to the top of the
+screen so it acts like a pseudo multi-line header-line.
+It works pretty well with my usage of mostly golang and elisp.
 
 Also has some support for org mode as well.
 
@@ -14,8 +16,9 @@ Primarily tested on emacs29 with doom and with vanilla.
 
 ** Motivation
 I really liked context.vim when I was using vim and I couldn't really find something that fit exactly.
-There's which-function-mode and lsp-breadcrumbs as well as topsy that I tried, all amazing in their own right
-but I wanted something to call my own and to scratch that itch.
+
+I used some of the other packages like the breadcrumb headerline of lsp mode, which-function-mode and
+topsy, but they weren't quite the same.
 
 * Installation
 
@@ -62,16 +65,20 @@ Also note, that this will add some advice to some window movement commands so th
 
 [[file:screenshots/demo.gif]]
 
+(theme is [[https://protesilaos.com/emacs/modus-themes][modus-operandi]] built into emacs 29)
+
 * Related packages
-Most of the alternatives use a single line, but they're also probably much more performant than this package.
+Most of the alternatives use a single line via the header-line, but they're also probably much more performant than this package.
+This package also takes up more screen real estate than the single header-line ones.
 
-treesitter-context
+This package also behaves more like topsy/org-sticky-header in that it starts the context search from the
+beginning of the window rather than at point itself like the other packages.
 
-topsy/org-sticky-header
-
-lsp-mode's headerline breadcrumbs
-
-eglot author's breadcrumb mode
+- [[https://github.com/zbelial/treesitter-context.el][treesitter-context]]
+- [[https://github.com/alphapapa/topsy.el][topsy]]
+- [[https://github.com/alphapapa/org-sticky-header][org-sticky-header]]
+- [[https://emacs-lsp.github.io/lsp-mode/page/settings/headerline/][lsp-mode-headerline]]
+- [[https://github.com/joaotavora/breadcrumb][breadcrumb-mode]]
 
 * Contributing
 Any feedback via the issues tab would be appreciated :) 
