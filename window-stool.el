@@ -102,7 +102,6 @@ Will move point so caller should call \"save-excursion\"."
                      (funcall ctx-fn)
                      'face
                      (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
-      (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
       (cl-pushnew ctx-str ctx)
       (while (> (org-current-level) 1)
         (outline-up-heading 1)
@@ -110,7 +109,6 @@ Will move point so caller should call \"save-excursion\"."
                         (funcall ctx-fn)
                         'face
                         (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
-          (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
           (cl-pushnew ctx-str ctx)
           )
         )
@@ -140,7 +138,6 @@ Will move point so caller should call \"save-excursion\"."
          (ctx-str (funcall ctx-fn)))
     ;; Need to add the current line that pos is on as well cause there's some weird issues
     ;; if we have an empty context
-    (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
     (cl-pushnew ctx-str ctx)
     (while (> (current-indentation) 0)
       (forward-line -1)
@@ -148,7 +145,6 @@ Will move point so caller should call \"save-excursion\"."
       (when (< (current-indentation) prev-indentation)
         (setq prev-indentation (current-indentation))
         (let ((ctx-str (funcall ctx-fn)))
-          (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
           (cl-pushnew ctx-str ctx))
         )
       )
@@ -203,6 +199,7 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
 
               (when window-stool-overlay
                 (move-overlay window-stool-overlay ol-beg-pos ol-end-pos)
+                (overlay-put window-stool-overlay 'face '(inherit . window-stool-face))
                 (overlay-put window-stool-overlay 'type 'window-stool--buffer-overlay)
                 (overlay-put window-stool-overlay 'priority 100)
                 (overlay-put window-stool-overlay 'display context-str))
