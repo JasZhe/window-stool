@@ -25,15 +25,14 @@
 ;;
 ;;; Code:
 
-
 (defun window-stool-window--get-context (pos)
   (goto-char pos)
-  (find-previous-non-empty-line)
+  (window-stool-find-prev-non-empty-line)
   (let ((ctx '())
         (prev-indentation (current-indentation)))
     (while (> (current-indentation) 0)
       (forward-line -1)
-      (find-previous-non-empty-line)
+      (window-stool-find-prev-non-empty-line)
       (when (< (current-indentation) prev-indentation)
         (setq prev-indentation (current-indentation))
         (let ((ctx-str (buffer-substring (line-beginning-position) (line-end-position))))
@@ -43,24 +42,27 @@
     ctx))
 
 (setq window-stool-window nil)
-(setq window-stool-window--buffer-name " *Window Stool*")
+(setq window-stool-window--buffer-name " *Window Stool")
 
 (defun window-stool-window--create ()
-  (when (not (eq (window-start) prev-window-start))
+  (when (not (eq (window-start) window-stool--prev-window-start))
     (let* ((ctx (save-excursion (window-stool-window--get-context (window-start))))
-           (buf (get-buffer-create window-stool-window--buffer-name))
-           (win (or (get-buffer-window window-stool-window--buffer-name) (split-window (selected-window) (- (max (length ctx) window-min-height)) 'above))))
-      (when win
-        (set-window-buffer win buf)
-        (ignore-errors (window-resize win (- (+ 1 (length ctx)) (window-body-height win))))
-        (with-current-buffer buf
-          (erase-buffer)
-          (setq mode-line-format "---------------context---------------")
-          (dolist (c ctx) (insert c "\n"))
-          (when ctx (delete-char -1))
-          ))
-      ))
-  )
+           (buf-name window-stool-window--buffer-name)
+           (buf (get-buffer-create buf-name))
+           (win (get-buffer-window buf-name)))
+
+      (display-buffer-in-side-window buf `((side . top)
+                                           (window-height . 1)))
+      (with-current-buffer buf
+        (setq mode-line-format nil)
+        (set-window-parameter win 'no-other-window t)
+        (set-window-dedicated-p win t)
+        (erase-buffer)
+        (dolist (c ctx) (insert c "\n"))
+        (when ctx (delete-char -1))
+        (insert "​")
+        (fit-window-to-buffer win)
+        ))))
 
 ;; call windmove up/down again if we switch into the code context window
 ;; to basically switch "past" it if we have two "real" windows on top of each other
@@ -85,9 +87,7 @@
   (let ((win (get-buffer-window window-stool-window--buffer-name)))
     (when win
       (delete-window win)
-      (balance-windows)
-      ))
-  )
+      (balance-windows))))
 
 
 (defun window-stool-window--advise-window-functions ()
@@ -104,6 +104,7 @@
   (advice-remove 'split-window #'window-stool-window--split-window-advice)
   (setq window-selection-change-functions (remove #'window-stool-window--delete window-selection-change-functions))
   )
+
 
 (provide 'window-stool-window)
 ;;; window-stool-window.el ends here
