@@ -213,7 +213,7 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
 (defun window-stool--scroll-overlay-into-position ()
   "Fixes some bugginess with scrolling getting stuck when the overlay large."
   (let* ((ctx-1 (save-excursion (funcall window-stool-fn (window-start))))
-	(ctx (window-stool--truncate-context ctx-1)))
+	 (ctx (window-stool--truncate-context ctx-1)))
     (when (not (eq (window-start) window-stool--prev-window-start))
       (when (and ctx (or (eq last-command 'evil-scroll-line-up)
 			 (eq last-command 'viper-scroll-down-one)
@@ -228,7 +228,7 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
 		   (goto-char (window-start))
 		   (line-move-visual -1 t)
 		   (line-beginning-position)))
-	    (scroll-down-line))
+	  (scroll-down-line))
 	))))
 
 (defun window-stool--scroll-function (_ display-start)
@@ -262,7 +262,6 @@ See: \"window-stool-use-overlays\""
              (setq-local window-stool--prev-window-start (window-start))
              (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
 
-	     
              (setq-local window-stool-fn
 			 (cdr (or (assq major-mode window-stool-major-mode-functions-alist)
                                   (assq nil window-stool-major-mode-functions-alist))))
@@ -278,19 +277,23 @@ See: \"window-stool-use-overlays\""
                    (add-hook 'post-command-hook (lambda () (window-stool--scroll-overlay-into-position)) nil t)
                    (add-to-list 'window-scroll-functions #'window-stool--scroll-function))
                (progn
+                 (setq window-stool--prev-window-min-height window-min-height)
+                 (setq window-min-height 0)
                  (add-hook 'post-command-hook #'window-stool-window--create nil t)
-                 (window-stool-window--advise-window-functions)))
+                 ))
              )
-    (progn (remove-hook 'post-command-hook
-			(lambda () (window-stool--scroll-overlay-into-position)) t)
+    ;; clean up overlay stuff
+    (progn (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
+           (remove-hook 'post-command-hook (lambda () (window-stool--scroll-overlay-into-position)) t)
 	   (kill-local-variable 'scroll-margin)
+
+           ;; cleanup window stuff
+           (setq window-min-height window-stool--prev-window-min-height)
 	   (setq window-scroll-functions
 		 (remove #'window-stool--scroll-function window-scroll-functions))
-	   (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
 	   (remove-hook 'post-command-hook #'window-stool-window--create t)
 	   (window-stool-window--delete nil)
-	   (window-stool-window--remove-window-function-advice)
-	   (remove-overlays (point-min) (point-max) 'type 'window-stool-buffer-overlay))))
+	   (window-stool-window--remove-window-function-advice))))
 
 (provide 'window-stool)
 ;;; window-stool.el ends here
