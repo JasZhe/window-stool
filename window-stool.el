@@ -209,9 +209,9 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
 
 (defun window-stool--scroll-overlay-into-position ()
   "Fixes some bugginess with scrolling getting stuck when the overlay large."
-  (let* ((ctx-1 (save-excursion (funcall window-stool-fn (window-start))))
-         (ctx (window-stool--truncate-context ctx-1)))
-    (when (not (eq (window-start) window-stool--prev-window-start))
+  (when (and (not (eq (window-start) window-stool--prev-window-start)) (buffer-file-name))
+    (let* ((ctx-1 (save-excursion (funcall window-stool-fn (window-start))))
+           (ctx (window-stool--truncate-context ctx-1)))
       (when (and ctx (or (eq last-command 'evil-scroll-line-up)
                          (eq last-command 'viper-scroll-down-one)
                          (eq last-command 'scroll-down-line)))
@@ -271,7 +271,7 @@ See: \"window-stool-use-overlays\""
              (if window-stool-use-overlays
                  (progn
                    (window-stool-window--delete nil)
-                   (add-hook 'post-command-hook (lambda () (window-stool--scroll-overlay-into-position)) nil t)
+                   (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
                    (add-to-list 'window-scroll-functions #'window-stool--scroll-function))
                (progn
                  (setq window-stool--prev-window-min-height window-min-height)
