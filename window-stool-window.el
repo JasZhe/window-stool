@@ -64,9 +64,7 @@
 ;; rebalance windows after deleting the code context one
 (defun window-stool-window--delete (_)
   (let ((win (get-buffer-window window-stool-window--buffer-name)))
-    (when win
-      (delete-window win)
-      (balance-windows))))
+    (when win (delete-window win))))
 
 
 (defun window-stool-window--advise-window-functions ()
