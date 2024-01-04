@@ -92,27 +92,27 @@ Will move point so caller should call \"save-excursion\"."
     ;; headings will have their normal indents.
     ;; Instead we propertize manually by grabbing the org-level-faces manually
     (let* ((ctx '())
-	   (ctx-fn (lambda ()
-		     (concat
-		      (buffer-substring-no-properties
-		       (line-beginning-position)
-		       (line-end-position))
-		      "\n")))
-	   (ctx-str (propertize
-		     (funcall ctx-fn)
-		     'face
-		     (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
+           (ctx-fn (lambda ()
+                     (concat
+                      (buffer-substring-no-properties
+                       (line-beginning-position)
+                       (line-end-position))
+                      "\n")))
+           (ctx-str (propertize
+                     (funcall ctx-fn)
+                     'face
+                     (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
       (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
       (cl-pushnew ctx-str ctx)
       (while (> (org-current-level) 1)
         (outline-up-heading 1)
         (let ((ctx-str (propertize
-		        (funcall ctx-fn)
-		        'face
-		        (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
-	  (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
-	  (cl-pushnew ctx-str ctx)
-	  )
+                        (funcall ctx-fn)
+                        'face
+                        (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
+          (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
+          (cl-pushnew ctx-str ctx)
+          )
         )
       ctx)))
 
@@ -131,13 +131,13 @@ Will move point so caller should call \"save-excursion\"."
   (window-stool-find-prev-non-empty-line)
   (let* ((ctx '())
          (prev-indentation (current-indentation))
-	 (ctx-fn (lambda ()
-		   (concat
-		    (buffer-substring
-		     (line-beginning-position)
-		     (line-end-position))
-		    "\n")))
-	 (ctx-str (funcall ctx-fn)))
+         (ctx-fn (lambda ()
+                   (concat
+                    (buffer-substring
+                     (line-beginning-position)
+                     (line-end-position))
+                    "\n")))
+         (ctx-str (funcall ctx-fn)))
     ;; Need to add the current line that pos is on as well cause there's some weird issues
     ;; if we have an empty context
     (add-face-text-property 0 (length ctx-str) '(:inherit window-stool-face) t ctx-str)
@@ -160,11 +160,11 @@ See: doc for \"window-stool-n-from-top\".
 Just returns CTX if both are 0."
   (if (or (> window-stool-n-from-top 0) (> window-stool-n-from-bottom 0))
       (let* ((from-top (min (length ctx) window-stool-n-from-top))
-	     (top-ctx (cl-subseq ctx 0 from-top))
-	     (ctx-1 (nthcdr from-top ctx))
-	     (from-bottom (min (length ctx-1) window-stool-n-from-bottom))
-	     (bottom-ctx (when (> from-bottom 0) (cl-subseq ctx-1 (- from-bottom)))))
-	(append top-ctx bottom-ctx))
+             (top-ctx (cl-subseq ctx 0 from-top))
+             (ctx-1 (nthcdr from-top ctx))
+             (from-bottom (min (length ctx-1) window-stool-n-from-bottom))
+             (bottom-ctx (when (> from-bottom 0) (cl-subseq ctx-1 (- from-bottom)))))
+        (append top-ctx bottom-ctx))
     ctx
     )
   )
@@ -181,23 +181,23 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
     (if (or (eq display-start (point-min)) same-buffer-multiple-windows-p)
         (delete-overlay window-stool-overlay)
       (progn
-	;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory. Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
+        ;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory. Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
         (when (and (buffer-file-name) (not (string-match "\\.git" (buffer-file-name))))
           (let* ((ctx-1 (save-excursion (funcall window-stool-fn display-start)))
-		 (ctx (window-stool--truncate-context ctx-1)))
+                 (ctx (window-stool--truncate-context ctx-1)))
             (let* ((ol-beg-pos display-start)
                    (ol-end-pos (save-excursion
-				 (goto-char display-start)
-				 (forward-line)
-				 (line-end-position)))
-		   ;; There's some bugginess if we don't have end-pos be on the next line, cause depending on the order of operations we might scroll past our overlay after redisplay.
-		   ;; The solution here is to make the overlay 2 lines and just show the "covered" second line as part of the overlay
+                                 (goto-char display-start)
+                                 (forward-line)
+                                 (line-end-position)))
+                   ;; There's some bugginess if we don't have end-pos be on the next line, cause depending on the order of operations we might scroll past our overlay after redisplay.
+                   ;; The solution here is to make the overlay 2 lines and just show the "covered" second line as part of the overlay
                    (covered-line (save-excursion
-				   (goto-char display-start)
-				   (forward-line)
-				   (buffer-substring
-				    (line-beginning-position)
-				    (line-end-position))))
+                                   (goto-char display-start)
+                                   (forward-line)
+                                   (buffer-substring
+                                    (line-beginning-position)
+                                    (line-end-position))))
                    (context-str-1 (when ctx (cl-reduce (lambda (acc str) (concat acc str)) ctx)))
                    (context-str (concat context-str-1 covered-line)))
 
@@ -213,31 +213,31 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
 (defun window-stool--scroll-overlay-into-position ()
   "Fixes some bugginess with scrolling getting stuck when the overlay large."
   (let* ((ctx-1 (save-excursion (funcall window-stool-fn (window-start))))
-	 (ctx (window-stool--truncate-context ctx-1)))
+         (ctx (window-stool--truncate-context ctx-1)))
     (when (not (eq (window-start) window-stool--prev-window-start))
       (when (and ctx (or (eq last-command 'evil-scroll-line-up)
-			 (eq last-command 'viper-scroll-down-one)
+                         (eq last-command 'viper-scroll-down-one)
                          (eq last-command 'scroll-down-line)))
-	(forward-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
+        (forward-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
 
-	;; So we don't need to double scroll when window start is in the middle of a visual line split
-	(when (= (save-excursion
-		   (goto-char (window-start))
-		   (line-beginning-position))
-		 (save-excursion
-		   (goto-char (window-start))
-		   (line-move-visual -1 t)
-		   (line-beginning-position)))
-	  (scroll-down-line))
-	))))
+        ;; So we don't need to double scroll when window start is in the middle of a visual line split
+        (when (= (save-excursion
+                   (goto-char (window-start))
+                   (line-beginning-position))
+                 (save-excursion
+                   (goto-char (window-start))
+                   (line-move-visual -1 t)
+                   (line-beginning-position)))
+          (scroll-down-line))
+        ))))
 
 (defun window-stool--scroll-function (_ display-start)
   "Convenience wrapper for \"window-scroll-functions\".
 Only requires use of DISPLAY-START.
 See: \"window-stool-single-overlay\"."
   (when (and (buffer-file-name)
-	     (or (not (boundp 'git-commit-mode))
-		 (not git-commit-mode)))
+             (or (not (boundp 'git-commit-mode))
+                 (not git-commit-mode)))
 
     ;; for org mode, if we hide the font decoration symbols for instance:
     ;; *This is bold* then display-start would point to the "T" instead of
@@ -263,14 +263,14 @@ See: \"window-stool-use-overlays\""
              (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
 
              (setq-local window-stool-fn
-			 (cdr (or (assq major-mode window-stool-major-mode-functions-alist)
+                         (cdr (or (assq major-mode window-stool-major-mode-functions-alist)
                                   (assq nil window-stool-major-mode-functions-alist))))
 
-	     ;; set buffer local scroll margin to avoid strange behavior when putting point into the overlay itself
-	     ;; since the overlay encompasses a lot less real text than the virtual text it actually shows
-	     (when (< scroll-margin (+ window-stool-n-from-top window-stool-n-from-bottom))
-	       (setq-local scroll-margin (+ 1 window-stool-n-from-top window-stool-n-from-bottom)))
-	     
+             ;; set buffer local scroll margin to avoid strange behavior when putting point into the overlay itself
+             ;; since the overlay encompasses a lot less real text than the virtual text it actually shows
+             (when (< scroll-margin (+ window-stool-n-from-top window-stool-n-from-bottom))
+               (setq-local scroll-margin (+ 1 window-stool-n-from-top window-stool-n-from-bottom)))
+
              (if window-stool-use-overlays
                  (progn
                    (window-stool-window--delete nil)
@@ -285,15 +285,15 @@ See: \"window-stool-use-overlays\""
     ;; clean up overlay stuff
     (progn (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
            (remove-hook 'post-command-hook (lambda () (window-stool--scroll-overlay-into-position)) t)
-	   (kill-local-variable 'scroll-margin)
+           (kill-local-variable 'scroll-margin)
 
            ;; cleanup window stuff
            (setq window-min-height window-stool--prev-window-min-height)
-	   (setq window-scroll-functions
-		 (remove #'window-stool--scroll-function window-scroll-functions))
-	   (remove-hook 'post-command-hook #'window-stool-window--create t)
-	   (window-stool-window--delete nil)
-	   (window-stool-window--remove-window-function-advice))))
+           (setq window-scroll-functions
+                 (remove #'window-stool--scroll-function window-scroll-functions))
+           (remove-hook 'post-command-hook #'window-stool-window--create t)
+           (window-stool-window--delete nil)
+           (window-stool-window--remove-window-function-advice))))
 
 (provide 'window-stool)
 ;;; window-stool.el ends here
