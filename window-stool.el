@@ -9,7 +9,7 @@
 ;; Version: 0.0.1
 ;; Keywords: context overlay
 ;; Homepage: https://github.com/jasonzhen/window-stool
-;; Package-Requires: ((emacs "24.3"))
+;; Package-Requires: ((emacs "27.1"))
 ;;
 ;; This file is not part of GNU Emacs.
 ;;
@@ -280,6 +280,7 @@ See: \"window-stool-use-overlays\""
                  (setq window-stool--prev-window-min-height window-min-height)
                  (setq window-min-height 0)
                  (add-hook 'post-command-hook #'window-stool-window--create nil t)
+                 (window-stool-window--advise-window-functions)
                  ))
              )
     ;; clean up overlay stuff

@@ -7,10 +7,9 @@
 ;; Created: December 19, 2023
 ;; Modified: December 19, 2023
 ;; Version: 0.0.1
-;; Package-Requires: ((emacs "24.4"))
+;; Package-Requires: ((emacs "27.1"))
 ;; Keywords: context window
 ;; Homepage: https://github.com/jasonzhen/window-stool
-;; Package-Requires: ((emacs "24.3"))
 ;;
 ;; This file is not part of GNU Emacs.
 ;;
@@ -49,15 +48,13 @@
     (let* ((ctx (save-excursion (window-stool-window--get-context (window-start))))
            (buf-name window-stool-window--buffer-name)
            (buf (get-buffer-create buf-name))
-           (win (get-buffer-window buf-name)))
+           (win (display-buffer-in-direction buf '((direction . above)))))
 
-      (display-buffer-in-side-window buf `((side . top)
-                                           (window-height . 1)))
       (with-current-buffer buf
         (setq mode-line-format nil)
         (set-window-parameter win 'no-other-window t)
-        (set-window-dedicated-p win t)
         (erase-buffer)
+
         (dolist (c ctx) (insert c "\n"))
         (when ctx (delete-char -1))
         (insert "​")
