@@ -24,28 +24,13 @@
 ;;
 ;;; Code:
 
-(defun window-stool-window--get-context (pos)
-  (goto-char pos)
-  (window-stool-find-prev-non-empty-line)
-  (let ((ctx '())
-        (prev-indentation (current-indentation)))
-    (while (> (current-indentation) 0)
-      (forward-line -1)
-      (window-stool-find-prev-non-empty-line)
-      (when (< (current-indentation) prev-indentation)
-        (setq prev-indentation (current-indentation))
-        (let ((ctx-str (buffer-substring (line-beginning-position) (line-end-position))))
-          (cl-pushnew ctx-str ctx))
-        )
-      )
-    ctx))
-
 (setq window-stool-window nil)
-(setq window-stool-window--buffer-name " *Window Stool")
+(setq window-stool-window--buffer-name " *Window Stool*")
 
 (defun window-stool-window--create ()
   (when (not (eq (window-start) window-stool--prev-window-start))
-    (let* ((ctx (save-excursion (window-stool-window--get-context (window-start))))
+    (let* ((ctx-1 (window-stool--truncate-context (save-excursion (funcall window-stool-fn (window-start)))))
+           (ctx (if (not (eq major-mode 'org-mode)) (cl-subseq ctx-1 0 (1- (length ctx-1))) ctx-1))
            (buf-name window-stool-window--buffer-name)
            (buf (get-buffer-create buf-name))
            (win (display-buffer-in-direction buf '((direction . above)))))
@@ -54,10 +39,7 @@
         (setq mode-line-format nil)
         (set-window-parameter win 'no-other-window t)
         (erase-buffer)
-
-        (dolist (c ctx) (insert c "\n"))
-        (when ctx (delete-char -1))
-        (insert "​")
+        (when ctx (insert (cl-reduce (lambda (acc str) (concat acc str)) ctx)))
         (fit-window-to-buffer win)
         ))))
 
