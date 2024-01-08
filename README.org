@@ -53,6 +53,17 @@ Add a hook to prog-mode (or any other mode) with a use-package config
 =window-stool-major-mode-functions-alist= - a list of (major-mode . function) for specific context rules outside of the basic indentation based one. An org one is provided as an example (although feel free to change it).
 Note: I would still classify this as somewhat experimental. I do think the current contract for this makes sense (it just returns a list of strings) but there is a small chance this might change if I get some feedback about it.
 
+=window-stool-valid-indentation-ctx-regex= - an alist of (major-mode . regex) to match "useful" lines based on the current major mode. The default, if major mode isn't found, is any line with at least 2 alphanumeric characters.
+This only affects the default indentation based context function. Context functions provided above will not inherit this.
+This way we avoid taking lines of only opening braces like in this example:
+#+begin_src c
+if condition
+{
+    blah
+}
+#+end_src
+When we're inside the block, we want to see the if statement instead of just "{" as the outermost context.
+
 =window-stool-use-overlays= - EXPERIMENTAL: the default is to use overlays, and that's also my personal preference. There probably won't be too much work on this option unless there's desire from users.
 Instead of an overlay, a minimally sized window will be shown at the top of the currently selected window that houses the context. For the sake of complexity, only one of these context windows can exist.
 Also note, that this will add some advice to some window movement commands so that we can "skip" over the context window, in the case where you have windows on top of each other. 

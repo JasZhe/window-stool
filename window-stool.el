@@ -76,6 +76,19 @@ Strings should end with newlines.
 Defaults to indentation based context function."
   :type '(alist :key-type symbol :value-type function))
 
+(defcustom window-stool-major-mode-valid-indentation-ctx-regex '((nil .".*[[:alnum:]][[:alnum:]].*"))
+  "A regex for valid context lines for the default indentation based context defun.
+The default is any string with at least two alphanumeric characters.
+This way, we avoid showing lines of only symbols like parentheses.
+Example in SQL:
+
+CREATE TABLE xyz
+(
+  blah...
+
+We want to show \"CREATE TABLE xyz\" instead of ( as the upper context here."
+  :type '(alist :key-type symbol :value-type regexp))
+
 (defvar window-stool-fn nil
   "Function that returns the context in a buffer from point.")
 
@@ -116,9 +129,11 @@ Will move point so caller should call \"save-excursion\"."
 
 (defun window-stool-find-prev-non-empty-line ()
   "Find non-empty line above from point."
+  ;; keep going back even further until we hit a "useful" line for context: at least 2 alphanumeric characters
   ;; empty body cause we basically just do the re-search-backward as part of the loop
-  (while (and (looking-at-p (rx-to-string `(: (* blank) eol)))
-              (re-search-backward (rx-to-string `(: (+ any))) nil t))))
+  (while (and (or (looking-at-p (rx-to-string `(: (* blank) eol)))
+                  (not (looking-at-p window-stool-valid-indentation-ctx-regex)))
+              (re-search-backward (rx-to-string `(: bol (+ any))) nil t))))
 
 (defun window-stool-get-indentation-context-from (pos)
   "Get indentation based context from POS.
@@ -263,6 +278,9 @@ See: \"window-stool-use-overlays\""
              (setq-local window-stool-fn
                          (cdr (or (assq major-mode window-stool-major-mode-functions-alist)
                                   (assq nil window-stool-major-mode-functions-alist))))
+             (setq-local window-stool-valid-indentation-ctx-regex
+                         (cdr (or (assq major-mode window-stool-major-mode-valid-indentation-ctx-regex)
+                                  (assq nil window-stool-major-mode-valid-indentation-ctx-regex))))
 
              ;; set buffer local scroll margin to avoid strange behavior when putting point into the overlay itself
              ;; since the overlay encompasses a lot less real text than the virtual text it actually shows
