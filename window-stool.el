@@ -176,9 +176,7 @@ Just returns CTX if both are 0."
              (from-bottom (min (length ctx-1) window-stool-n-from-bottom))
              (bottom-ctx (when (> from-bottom 0) (cl-subseq ctx-1 (- from-bottom)))))
         (append top-ctx bottom-ctx))
-    ctx
-    )
-  )
+    ctx))
 
 (defun window-stool-single-overlay (display-start)
   "Create/move an overlay to show buffer context above DISPLAY-START.
@@ -241,8 +239,7 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
                    (goto-char (window-start))
                    (line-move-visual -1 t)
                    (line-beginning-position)))
-          (scroll-down-line))
-        ))))
+          (scroll-down-line))))))
 
 (defun window-stool--scroll-function (_ display-start)
   "Convenience wrapper for \"window-scroll-functions\".
@@ -290,25 +287,22 @@ See: \"window-stool-use-overlays\""
              (if window-stool-use-overlays
                  (progn
                    (window-stool-window--delete nil)
-                   (add-to-list 'window-scroll-functions #'window-stool--scroll-function)
-                   ;;(add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t))
+                   (add-to-list 'window-scroll-functions #'window-stool--scroll-function))
                (progn
                  (setq window-stool--prev-window-min-height window-min-height)
                  (setq window-min-height 0)
                  (add-hook 'post-command-hook #'window-stool-window--create nil t)
-                 (window-stool-window--advise-window-functions)
-                 ))
-             )
+                 (window-stool-window--advise-window-functions))))
     ;; clean up overlay stuff
     (progn (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
            (remove-hook 'post-command-hook (lambda () (window-stool--scroll-overlay-into-position)) t)
+           (setq window-scroll-functions
+                 (remove #'window-stool--scroll-function window-scroll-functions))
            (kill-local-variable 'scroll-margin)
 
            ;; cleanup window stuff
            (when (boundp 'window-stool--prev-window-min-height) (setq window-min-height window-stool--prev-window-min-height))
-           (setq window-scroll-functions
-                 (remove #'window-stool--scroll-function window-scroll-functions))
-           ;;(remove-hook 'post-command-hook #'window-stool-window--create t)
+           (remove-hook 'post-command-hook #'window-stool-window--create t)
            (window-stool-window--delete nil)
            (window-stool-window--remove-window-function-advice))))
 
