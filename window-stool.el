@@ -272,8 +272,8 @@ See: \"window-stool-use-overlays\""
              (if window-stool-use-overlays
                  (progn
                    (window-stool-window--delete nil)
-                   (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
-                   (add-to-list 'window-scroll-functions #'window-stool--scroll-function))
+                   (add-to-list 'window-scroll-functions #'window-stool--scroll-function)
+                   ;;(add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t))
                (progn
                  (setq window-stool--prev-window-min-height window-min-height)
                  (setq window-min-height 0)
@@ -287,10 +287,10 @@ See: \"window-stool-use-overlays\""
            (kill-local-variable 'scroll-margin)
 
            ;; cleanup window stuff
-           (setq window-min-height window-stool--prev-window-min-height)
+           (when (boundp 'window-stool--prev-window-min-height) (setq window-min-height window-stool--prev-window-min-height))
            (setq window-scroll-functions
                  (remove #'window-stool--scroll-function window-scroll-functions))
-           (remove-hook 'post-command-hook #'window-stool-window--create t)
+           ;;(remove-hook 'post-command-hook #'window-stool-window--create t)
            (window-stool-window--delete nil)
            (window-stool-window--remove-window-function-advice))))
 
