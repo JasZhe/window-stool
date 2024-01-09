@@ -163,6 +163,14 @@ Will move point so caller should call \"save-excursion\"."
           (cl-pushnew ctx-str ctx))
         )
       )
+    ;; need the forward char so we ensure we go back to the beg of current defun
+    ;; and not previous defun
+    (when (fboundp 'beginning-of-defun)
+      (forward-char)
+      (beginning-of-defun)
+      (let ((ctx-str (funcall ctx-fn)))
+        (when (not (string-equal ctx-str (cl-first ctx)))
+          (cl-pushnew ctx-str ctx))))
     ctx))
 
 (defun window-stool--truncate-context (ctx)
@@ -226,20 +234,21 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
   (when (and (not (eq (window-start) window-stool--prev-window-start)) (buffer-file-name))
     (let* ((ctx-1 (save-excursion (funcall window-stool-fn (window-start))))
            (ctx (window-stool--truncate-context ctx-1)))
-      (when (and ctx (or (eq last-command 'evil-scroll-line-up)
-                         (eq last-command 'viper-scroll-down-one)
-                         (eq last-command 'scroll-down-line)))
-        (forward-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
+      (ignore-errors
+        (when (and ctx (or (eq last-command 'evil-scroll-line-up)
+                           (eq last-command 'viper-scroll-down-one)
+                           (eq last-command 'scroll-down-line)))
+          (forward-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
 
-        ;; So we don't need to double scroll when window start is in the middle of a visual line split
-        (when (= (save-excursion
-                   (goto-char (window-start))
-                   (line-beginning-position))
-                 (save-excursion
-                   (goto-char (window-start))
-                   (line-move-visual -1 t)
-                   (line-beginning-position)))
-          (scroll-down-line))))))
+          ;; So we don't need to double scroll when window start is in the middle of a visual line split
+          (when (= (save-excursion
+                     (goto-char (window-start))
+                     (line-beginning-position))
+                   (save-excursion
+                     (goto-char (window-start))
+                     (line-move-visual -1 t)
+                     (line-beginning-position)))
+            (scroll-down-line)))))))
 
 (defun window-stool--scroll-function (_ display-start)
   "Convenience wrapper for \"window-scroll-functions\".
