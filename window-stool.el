@@ -166,7 +166,7 @@ Will move point so caller should call \"save-excursion\"."
     ;; need the forward char so we ensure we go back to the beg of current defun
     ;; and not previous defun
     (when (fboundp 'beginning-of-defun)
-      (forward-char)
+      (forward-line)
       (beginning-of-defun)
       (let ((ctx-str (funcall ctx-fn)))
         (when (not (string-equal ctx-str (cl-first ctx)))
