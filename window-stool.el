@@ -297,6 +297,10 @@ See: \"window-stool-use-overlays\""
                  (progn
                    (window-stool-window--delete nil)
                    (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
+                   ;; prevents a (void-function: nil) error when we switch to a non-hooked mode i.e. in fundamental mode,
+                   ;; which will break the global window-scroll-functions' window-stool--scroll-function
+                   ;; therefore breaking window-stool for all other buffers
+                   (make-local-variable 'window-scroll-functions)
                    (add-to-list 'window-scroll-functions #'window-stool--scroll-function))
                (progn
                  (setq window-stool--prev-window-min-height window-min-height)
