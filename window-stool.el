@@ -31,6 +31,7 @@
 (require 'cl-lib)
 (require 'window-stool-window)
 (require 'org)
+(require 'timer)
 
 (defgroup window-stool nil
   "A minor mode for providing some additional buffer context via overlays."
@@ -263,6 +264,9 @@ See: \"window-stool-single-overlay\"."
     ;; the first "*" and (scroll-down 1) would complain about beginning of buffer
     (window-stool-single-overlay (save-excursion (goto-char display-start) (line-beginning-position)))))
 
+(defun window-stool-idle-fn ()
+  (window-stool--scroll-function nil (window-start)))
+
 ;;;###autoload
 (define-minor-mode window-stool-mode
   "Minor mode to show buffer context.
@@ -297,6 +301,10 @@ See: \"window-stool-use-overlays\""
                  (progn
                    (window-stool-window--delete nil)
                    (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
+                   ;; little hack to redisplay the overlay after a delay in the cases where
+                   ;; the overlay ends up in an odd position/not displayed and window-scroll-functions don't run
+                   ;; like when changing tabs
+                   (setq window-stool-timer (run-with-idle-timer 0.5 t #'window-stool-idle-fn))
                    ;; prevents a (void-function: nil) error when we switch to a non-hooked mode i.e. in fundamental mode,
                    ;; which will break the global window-scroll-functions' window-stool--scroll-function
                    ;; therefore breaking window-stool for all other buffers
@@ -313,6 +321,7 @@ See: \"window-stool-use-overlays\""
            (setq window-scroll-functions
                  (remove #'window-stool--scroll-function window-scroll-functions))
            (kill-local-variable 'scroll-margin)
+           (cancel-timer window-stool-timer)
 
            ;; cleanup window stuff
            (when (boundp 'window-stool--prev-window-min-height) (setq window-min-height window-stool--prev-window-min-height))
