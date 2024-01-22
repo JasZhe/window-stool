@@ -263,10 +263,6 @@ See: \"window-stool-single-overlay\"."
     ;; the first "*" and (scroll-down 1) would complain about beginning of buffer
     (window-stool-single-overlay (save-excursion (goto-char display-start) (line-beginning-position)))))
 
-(defun window-stool-post-command-fn ()
-  (when (not (eq (window-start) window-stool--prev-window-start))
-    (window-stool--scroll-function nil (window-start))))
-
 ;;;###autoload
 (define-minor-mode window-stool-mode
   "Minor mode to show buffer context.
@@ -297,15 +293,10 @@ See: \"window-stool-use-overlays\""
              (when (< scroll-margin (+ window-stool-n-from-top window-stool-n-from-bottom))
                (setq-local scroll-margin (+ 1 window-stool-n-from-top window-stool-n-from-bottom)))
 
-             (setq-local window-stool--prev-window-start 0)
              (if window-stool-use-overlays
                  (progn
                    (window-stool-window--delete nil)
-                   ;; adding it to post command hook too makes it more consistent
-                   ;; prevents some weird cases where the overlay would be in the middle of the screen
-                   ;; because the window-scroll-function wasn't triggered even though the position in the display changed
-                   (add-hook 'post-command-hook #'window-stool-post-command-fn 100 t)
-                   (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position 100 t)
+                   (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
                    ;; prevents a (void-function: nil) error when we switch to a non-hooked mode i.e. in fundamental mode,
                    ;; which will break the global window-scroll-functions' window-stool--scroll-function
                    ;; therefore breaking window-stool for all other buffers
@@ -318,8 +309,7 @@ See: \"window-stool-use-overlays\""
                  (window-stool-window--advise-window-functions))))
     ;; clean up overlay stuff
     (progn (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
-           (remove-hook 'post-command-hook #'window-stool-post-command-fn t)
-           (remove-hook 'post-command-hook #'window-stool--scroll-overlay-into-position t)
+           (remove-hook 'post-command-hook (lambda () (window-stool--scroll-overlay-into-position)) t)
            (setq window-scroll-functions
                  (remove #'window-stool--scroll-function window-scroll-functions))
            (kill-local-variable 'scroll-margin)
