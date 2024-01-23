@@ -265,7 +265,7 @@ See: \"window-stool-single-overlay\"."
     (window-stool-single-overlay (save-excursion (goto-char display-start) (line-beginning-position)))))
 
 (defun window-stool-idle-fn ()
-  (when window-stool-fn
+  (when (and window-stool-fn (not (overlays-at (window-start))))
     (window-stool--scroll-function nil (window-start))))
 
 ;;;###autoload
@@ -305,7 +305,8 @@ See: \"window-stool-use-overlays\""
                    ;; little hack to redisplay the overlay after a delay in the cases where
                    ;; the overlay ends up in an odd position/not displayed and window-scroll-functions don't run
                    ;; like when changing tabs
-                   (setq window-stool-timer (run-with-idle-timer 0.5 t #'window-stool-idle-fn))
+                   (unless (and (boundp 'window-stool-timer) window-stool-timer)
+                     (setq-local window-stool-timer (run-with-idle-timer 0.5 t #'window-stool-idle-fn)))
                    ;; prevents a (void-function: nil) error when we switch to a non-hooked mode i.e. in fundamental mode,
                    ;; which will break the global window-scroll-functions' window-stool--scroll-function
                    ;; therefore breaking window-stool for all other buffers
