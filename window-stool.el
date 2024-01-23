@@ -265,7 +265,8 @@ See: \"window-stool-single-overlay\"."
     (window-stool-single-overlay (save-excursion (goto-char display-start) (line-beginning-position)))))
 
 (defun window-stool-idle-fn ()
-  (window-stool--scroll-function nil (window-start)))
+  (when window-stool-fn
+    (window-stool--scroll-function nil (window-start))))
 
 ;;;###autoload
 (define-minor-mode window-stool-mode
