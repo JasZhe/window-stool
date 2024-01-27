@@ -329,7 +329,7 @@ Like a stool to peek a little higher than you could normally.
 Uses overlays by default and attaches to \"post-command-hook\".
 CAUTION: This can have some major performance impact on scrolling.
 
-EXPERIMENTAL: alternative option to use a pseudo-dedicated window.
+Alternative option to use a pseudo-dedicated window.
 See: \"window-stool-use-overlays\""
   :lighter " WinStool"
   :group 'window-stool
@@ -379,7 +379,7 @@ See: \"window-stool-use-overlays\""
 
                  (setq window-stool--prev-window-min-height window-min-height)
                  (setq window-min-height 0)
-                 (add-hook 'post-command-hook #'window-stool-window--create nil t)
+                 (add-hook 'post-command-hook #'window-stool-window--create)
                  (window-stool-window--advise-window-functions))))
     ;; clean up overlay stuff
     (progn (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
@@ -391,7 +391,7 @@ See: \"window-stool-use-overlays\""
 
            ;; cleanup window stuff
            (when (boundp 'window-stool--prev-window-min-height) (setq window-min-height window-stool--prev-window-min-height))
-           (remove-hook 'post-command-hook #'window-stool-window--create t)
+           (remove-hook 'post-command-hook #'window-stool-window--create)
            (window-stool-window--delete)
            (window-stool-window--remove-window-function-advice))))
 

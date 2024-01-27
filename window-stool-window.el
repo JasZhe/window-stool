@@ -28,6 +28,12 @@
 (setq window-stool-window--buffer-name " *Window Stool*")
 
 (defun window-stool-window--create ()
+  "Create a code context window above the currently selected window."
+
+  ;; Fixes issue with window stool window sometimes sticking around after #'delete-window
+  ;; if the next selected window was a non file visiting buffer.
+  ;; Needs post-command-hook attached to this to be non-local
+  (window-stool-window--delete)
   ;; only in file visiting buffers
   (when (buffer-file-name)
     (let* ((ctx-1 (window-stool--truncate-context (save-excursion (funcall window-stool-fn (window-start)))))
