@@ -264,9 +264,28 @@ See: \"window-stool-single-overlay\"."
     ;; the first "*" and (scroll-down 1) would complain about beginning of buffer
     (window-stool-single-overlay (save-excursion (goto-char display-start) (line-beginning-position)))))
 
+(defvar window-stool-timer nil
+  "Idle timer used to reset the window-stool overlay if for some reason, it gets out of position
+and the normal mechanism for repositioning it doesn't run (via \"window-scroll-functions\").")
+
+(defvar window-stool-buffer-list '()
+  "List of buffers, window-stool is enabled in.")
+
 (defun window-stool-idle-fn ()
-  (when (and window-stool-fn (not (overlays-at (window-start))))
-    (window-stool--scroll-function nil (window-start))))
+  "Function to be used in an idle timer.
+Re-positions the window-stool overlay if it gets out of position.
+
+Cancels \"window-stool-timer\" if \"window-stool-buffer-list\" is empty."
+  (when (and (boundp 'window-stool-mode)
+             window-stool-mode
+             window-stool-fn
+             (not (cl-remove-if-not
+                   (lambda (o) (eq (overlay-get o 'type) 'window-stool--buffer-overlay))
+                   (overlays-at (window-start)))))
+    (window-stool--scroll-function nil (window-start)))
+  (when (= (length window-stool-buffer-list) 0)
+    (cancel-timer window-stool-timer)
+    (setq window-stool-timer nil)))
 
 ;;;###autoload
 (define-minor-mode window-stool-mode
@@ -305,8 +324,15 @@ See: \"window-stool-use-overlays\""
                    ;; little hack to redisplay the overlay after a delay in the cases where
                    ;; the overlay ends up in an odd position/not displayed and window-scroll-functions don't run
                    ;; like when changing tabs
-                   (unless (and (boundp 'window-stool-timer) window-stool-timer)
-                     (setq-local window-stool-timer (run-with-idle-timer 0.5 t #'window-stool-idle-fn)))
+                   (unless (timerp window-stool-timer)
+                     (setq window-stool-timer (run-with-idle-timer 0.5 t #'window-stool-idle-fn)))
+
+                   (when (buffer-file-name)
+                     (cl-pushnew (current-buffer) window-stool-buffer-list))
+
+                   ;; remove from window-stool-buffer-list if buffer iskilled
+                   (add-hook 'kill-buffer-hook (lambda () (cl-remove (current-buffer) window-stool-buffer-list)))
+
                    ;; prevents a (void-function: nil) error when we switch to a non-hooked mode i.e. in fundamental mode,
                    ;; which will break the global window-scroll-functions' window-stool--scroll-function
                    ;; therefore breaking window-stool for all other buffers
@@ -322,8 +348,8 @@ See: \"window-stool-use-overlays\""
            (remove-hook 'post-command-hook (lambda () (window-stool--scroll-overlay-into-position)) t)
            (setq window-scroll-functions
                  (remove #'window-stool--scroll-function window-scroll-functions))
+           (setq window-stool-buffer-list (cl-remove (current-buffer) window-stool-buffer-list))
            (kill-local-variable 'scroll-margin)
-           (cancel-timer window-stool-timer)
 
            ;; cleanup window stuff
            (when (boundp 'window-stool--prev-window-min-height) (setq window-min-height window-stool--prev-window-min-height))
