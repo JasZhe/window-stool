@@ -318,7 +318,7 @@ See: \"window-stool-use-overlays\""
                  (window-stool-window--advise-window-functions))))
     ;; clean up overlay stuff
     (progn (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
-           (remove-hook 'post-command-hook (lambda () (window-stool--scroll-overlay-into-position)) t)
+           (remove-hook 'post-command-hook #'window-stool--scroll-overlay-into-position t)
            (setq window-scroll-functions
                  (remove #'window-stool--scroll-function window-scroll-functions))
            (kill-local-variable 'scroll-margin)
