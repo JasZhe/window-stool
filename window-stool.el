@@ -211,6 +211,9 @@ Return a cons cell of the window with its \"window-start\" value."
    (window-stool--windows-displaying-buf buf)
    :initial-value (cons nil most-positive-fixnum)))
 
+(defvar-local window-stool-overlay nil
+  "Variable to hold the overlay used in window-stool.")
+
 (defun window-stool-single-overlay (display-start)
   "Create/move an overlay to show buffer context above DISPLAY-START.
 Single overlay per buffer.
@@ -219,7 +222,7 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
   (let* ((window-bufs (cl-reduce (lambda (acc win) (push (window-buffer win) acc)) (window-list) :initial-value '()))
          (window-bufs-unique (cl-reduce (lambda (acc win) (cl-pushnew (window-buffer win) acc)) (window-list) :initial-value '()))
          (same-buffer-multiple-windows-p (not (= (length window-bufs) (length window-bufs-unique)))))
-    (unless (boundp 'window-stool-overlay) (setq-local window-stool-overlay (make-overlay 1 1)))
+    (unless window-stool-overlay (setq-local window-stool-overlay (make-overlay 1 1)))
     (if (or (eq display-start (point-min)) same-buffer-multiple-windows-p)
         (delete-overlay window-stool-overlay)
       (progn
@@ -256,7 +259,7 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
 
 (defun window-stool--scroll-overlay-into-position ()
   "Fixes some bugginess with scrolling getting stuck when the overlay large."
-  (when (and (boundp 'window-stool-overlay)
+  (when (and window-stool-overlay
              (overlay-buffer window-stool-overlay)
              (not (eq (window-start) window-stool--prev-window-start)) (buffer-file-name))
     (let* ((ctx-1 (save-excursion (funcall window-stool-fn (window-start))))
@@ -365,6 +368,11 @@ See: \"window-stool-use-overlays\""
                    (make-local-variable 'window-scroll-functions)
                    (add-to-list 'window-scroll-functions #'window-stool--scroll-function))
                (progn
+                 ;; cancel the timer if we're using the "window" version
+                 (when (timerp window-stool-timer)
+                   (cancel-timer window-stool-timer)
+                   (setq window-stool-timer nil))
+
                  (setq window-stool--prev-window-min-height window-min-height)
                  (setq window-min-height 0)
                  (add-hook 'post-command-hook #'window-stool-window--create nil t)
