@@ -256,7 +256,9 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
 
 (defun window-stool--scroll-overlay-into-position ()
   "Fixes some bugginess with scrolling getting stuck when the overlay large."
-  (when (and (not (eq (window-start) window-stool--prev-window-start)) (buffer-file-name))
+  (when (and (boundp 'window-stool-overlay)
+             (overlay-buffer window-stool-overlay)
+             (not (eq (window-start) window-stool--prev-window-start)) (buffer-file-name))
     (let* ((ctx-1 (save-excursion (funcall window-stool-fn (window-start))))
            (ctx (window-stool--truncate-context ctx-1)))
       (ignore-errors
