@@ -28,7 +28,9 @@
 (setq window-stool-window--buffer-name " *Window Stool*")
 
 (defun window-stool-window--create ()
-  (when (not (eq (window-start) window-stool--prev-window-start))
+  (if (and (buffer-file-name)
+           (not (string-match "\\.git" (buffer-file-name)))
+           (not (eq (window-start) window-stool--prev-window-start)))
     (let* ((ctx-1 (window-stool--truncate-context (save-excursion (funcall window-stool-fn (window-start)))))
            (ctx (if (not (eq major-mode 'org-mode)) (cl-subseq ctx-1 0 (1- (length ctx-1))) ctx-1))
            (buf-name window-stool-window--buffer-name)
@@ -40,8 +42,8 @@
         (set-window-parameter win 'no-other-window t)
         (erase-buffer)
         (when ctx (insert (cl-reduce (lambda (acc str) (concat acc str)) ctx)))
-        (fit-window-to-buffer win)
-        ))))
+        (fit-window-to-buffer win)))
+    (window-stool-window--delete nil)))
 
 ;; call windmove up/down again if we switch into the code context window
 ;; to basically switch "past" it if we have two "real" windows on top of each other
