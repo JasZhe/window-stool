@@ -187,6 +187,30 @@ Just returns CTX if both are 0."
         (append top-ctx bottom-ctx))
     ctx))
 
+(defun window-stool--windows-displaying-buf (buf)
+  (cl-reduce
+   (lambda (acc win)
+     (if (eq (window-buffer win) buf)
+         (push win acc)
+       acc))
+   (window-list)
+   :initial-value '()))
+
+(defun window-stool--upper-window-displaying-buf (buf)
+  "Find the window showing \"buf\" with the smallest display-start.
+In other words, the window that shows earlier contents of the buffer.
+Return a cons cell of the window with its \"window-start\" value."
+  (cl-reduce
+   (lambda (acc win)
+     (if (eq (window-buffer win) buf)
+       (let ((win-start (window-start win)))
+         (if (< win-start (cdr acc))
+             (cons win win-start)
+           acc))
+       acc))
+   (window-stool--windows-displaying-buf buf)
+   :initial-value (cons nil most-positive-fixnum)))
+
 (defun window-stool-single-overlay (display-start)
   "Create/move an overlay to show buffer context above DISPLAY-START.
 Single overlay per buffer.
