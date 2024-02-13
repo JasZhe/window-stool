@@ -62,6 +62,14 @@
   (let ((win (get-buffer-window window-stool-window--buffer-name)))
     (when win (delete-window win))))
 
+(defun window-stool-window--balance-advice-after (&rest _)
+  (let ((win (get-buffer-window window-stool-window--buffer-name)))
+    (when win (fit-window-to-buffer win))))
+
+(defun window-stool-window--balance-advice-before (&rest _)
+  (let ((win (get-buffer-window window-stool-window--buffer-name)))
+    (when win (fit-window-to-buffer win))))
+
 (defun window-stool-window--advise-window-functions ()
   ;; When quitting magit on a split frame in doom, the window rebalancing
   ;; would be thrown off because of the window-stool-window.
@@ -71,12 +79,23 @@
   ;; issues as well.
   (advice-add 'display-buffer :before #'window-stool-window--delete)
 
+  ;; ensure window stool window doesn't get resized from rebalancing
+  ;; odd case where balancing windows on a window with a non window-stool
+  ;; buffer displayed, will equalize the other window that does have the
+  ;; window-stool-window.
+  (advice-add 'balance-windows :before #'window-stool-window--balance-advice-before)
+  (advice-add 'balance-windows :after #'window-stool-window--balance-advice-after)
+
   (advice-add 'windmove-up :after #'window-stool-window--windmove-up-advice)
   (advice-add 'windmove-down :after #'window-stool-window--windmove-down-advice)
   (advice-add 'split-window :before #'window-stool-window--split-window-advice))
 
 (defun window-stool-window--remove-window-function-advice ()
   (advice-remove 'display-buffer #'window-stool-window--delete)
+
+  (advice-remove 'balance-windows #'window-stool-window--balance-advice-before)
+  (advice-remove 'balance-windows #'window-stool-window--balance-advice-after)
+
   (advice-remove 'windmove-up #'window-stool-window--windmove-up-advice)
   (advice-remove 'windmove-down #'window-stool-window--windmove-down-advice)
   (advice-remove 'split-window #'window-stool-window--split-window-advice))
