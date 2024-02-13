@@ -214,6 +214,9 @@ Return a cons cell of the window with its \"window-start\" value."
 (defvar-local window-stool-overlay nil
   "Variable to hold the overlay used in window-stool.")
 
+(defvar-local window-stool--prev-window-start nil
+  "The previous window-start. So we don't run the overlay creation unnecessarily.")
+
 (defun window-stool-single-overlay (display-start)
   "Create/move an overlay to show buffer context above DISPLAY-START.
 Single overlay per buffer.
@@ -388,7 +391,7 @@ See: \"window-stool-use-overlays\""
            ;; cleanup window stuff
            (when (boundp 'window-stool--prev-window-min-height) (setq window-min-height window-stool--prev-window-min-height))
            (remove-hook 'post-command-hook #'window-stool-window--create t)
-           (window-stool-window--delete nil)
+           (window-stool-window--delete)
            (window-stool-window--remove-window-function-advice))))
 
 (provide 'window-stool)
