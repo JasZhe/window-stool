@@ -45,6 +45,9 @@
         (add-face-text-property (point-min) (point-max) '(:inherit window-stool-face) t)
         (fit-window-to-buffer win)))))
 
+
+(defun window-stool-window--create-ad (&rest _) (window-stool-window--create))
+
 ;; call windmove up/down again if we switch into the code context window
 ;; to basically switch "past" it if we have two "real" windows on top of each other
 (defun window-stool-window--windmove-up-advice ()
@@ -63,13 +66,17 @@
   (let ((win (get-buffer-window window-stool-window--buffer-name)))
     (when win (delete-window win))))
 
-(defun window-stool-window--balance-advice-after (&rest _)
+(defun window-stool-window--fit-to-buffer ()
   (let ((win (get-buffer-window window-stool-window--buffer-name)))
     (when win (fit-window-to-buffer win))))
 
+(defun window-stool-window--balance-advice-after (&rest _)
+  (window-stool-window--fit-to-buffer))
+
 (defun window-stool-window--balance-advice-before (&rest _)
-  (let ((win (get-buffer-window window-stool-window--buffer-name)))
-    (when win (fit-window-to-buffer win))))
+  (window-stool-window--fit-to-buffer))
+
+
 
 (defun window-stool-window--advise-window-functions ()
   ;; When quitting magit on a split frame in doom, the window rebalancing
@@ -87,6 +94,12 @@
   (advice-add 'balance-windows :before #'window-stool-window--balance-advice-before)
   (advice-add 'balance-windows :after #'window-stool-window--balance-advice-after)
 
+  ;; delete the window and then re-add so we don't affect window enlargement/shrinkage
+  (advice-add 'shrink-window :before #'window-stool-window--delete)
+  (advice-add 'shrink-window :after #'window-stool-window--create-ad)
+  (advice-add 'enlarge-window :before #'window-stool-window--delete)
+  (advice-add 'enlarge-window :after #'window-stool-window--create-ad)
+
   (advice-add 'windmove-up :after #'window-stool-window--windmove-up-advice)
   (advice-add 'windmove-down :after #'window-stool-window--windmove-down-advice)
   (advice-add 'split-window :before #'window-stool-window--split-window-advice))
@@ -96,6 +109,11 @@
 
   (advice-remove 'balance-windows #'window-stool-window--balance-advice-before)
   (advice-remove 'balance-windows #'window-stool-window--balance-advice-after)
+
+  (advice-remove 'shrink-window #'window-stool-window--delete)
+  (advice-remove 'shrink-window #'window-stool-window--create)
+  (advice-remove 'enlarge-window #'window-stool-window--delete)
+  (advice-remove 'enlarge-window #'window-stool-window--create-ad)
 
   (advice-remove 'windmove-up #'window-stool-window--windmove-up-advice)
   (advice-remove 'windmove-down #'window-stool-window--windmove-down-advice)
