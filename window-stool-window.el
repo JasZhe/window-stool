@@ -42,6 +42,7 @@
         (set-window-parameter win 'no-other-window t)
         (erase-buffer)
         (when ctx (insert (cl-reduce (lambda (acc str) (concat acc str)) ctx)))
+        (add-face-text-property (point-min) (point-max) '(:inherit window-stool-face) t)
         (fit-window-to-buffer win)))))
 
 ;; call windmove up/down again if we switch into the code context window
