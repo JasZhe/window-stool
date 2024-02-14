@@ -44,7 +44,8 @@ This will be ADDED to the context string's existing buffer font locking."
   :group 'window-stool)
 
 (defcustom window-stool-use-overlays t
-  "Whether or not to use overlays or dedicated window (EXPERIMENTAL)."
+  "Whether or not to use overlays or dedicated window.
+It's recommended to disable \"window-divider-mode\" if this is nil."
   :type '(boolean))
 
 (defcustom window-stool-n-from-top 1
