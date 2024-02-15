@@ -54,25 +54,27 @@
 
 (defun window-stool-window--create-ad (&rest _) (window-stool-window--create))
 
-;; call windmove up/down again if we switch into the code context window
-;; to basically switch "past" it if we have two "real" windows on top of each other
 (defun window-stool-window--windmove-up-advice ()
+  "Advice to move 'past the context window if there's another window above.
+If there isn't (when \"windmove-up\" signals an error), move back down to the original window."
   (when (string= (buffer-name) window-stool-window--buffer-name)
-    (windmove-up)))
+    (condition-case nil
+        (windmove-up)
+      (error (windmove-down)))))
 
 (defun window-stool-window--windmove-down-advice ()
+  "Similar to \"window-stool-window--windmove-up-advice\".
+Doesn't need to move back to the original window on error,since context window is always on top."
   (when (string= (buffer-name) window-stool-window--buffer-name)
     (windmove-down)))
 
-(defun window-stool-window--split-window-advice (&optional _ _ _ _)
-  (let ((win (get-buffer-window window-stool-window--buffer-name)))
-    (when win (delete-window win))))
-
 (defun window-stool-window--delete (&rest _)
+  "Find the window containing the context buffer, and delete it."
   (let ((win (get-buffer-window window-stool-window--buffer-name)))
     (when win (delete-window win))))
 
 (defun window-stool-window--fit-to-buffer ()
+  "Find the window containing the context buffer, and fit the window to its contents."
   (let ((win (get-buffer-window window-stool-window--buffer-name)))
     (when win (fit-window-to-buffer win))))
 
@@ -85,6 +87,8 @@
 
 
 (defun window-stool-window--advise-window-functions ()
+  "Advise a variety of window and buffer functions for interoperability with the context window."
+
   ;; When quitting magit on a split frame in doom, the window rebalancing
   ;; would be thrown off because of the window-stool-window.
   ;;
@@ -108,7 +112,7 @@
 
   (advice-add 'windmove-up :after #'window-stool-window--windmove-up-advice)
   (advice-add 'windmove-down :after #'window-stool-window--windmove-down-advice)
-  (advice-add 'split-window :before #'window-stool-window--split-window-advice))
+  (advice-add 'split-window :before #'window-stool-window--delete))
 
 (defun window-stool-window--remove-window-function-advice ()
   (advice-remove 'display-buffer #'window-stool-window--delete)
@@ -123,7 +127,7 @@
 
   (advice-remove 'windmove-up #'window-stool-window--windmove-up-advice)
   (advice-remove 'windmove-down #'window-stool-window--windmove-down-advice)
-  (advice-remove 'split-window #'window-stool-window--split-window-advice))
+  (advice-remove 'split-window #'window-stool-window--delete))
 
 (provide 'window-stool-window)
 ;;; window-stool-window.el ends here
