@@ -204,10 +204,10 @@ Return a cons cell of the window with its \"window-start\" value."
   (cl-reduce
    (lambda (acc win)
      (if (eq (window-buffer win) buf)
-       (let ((win-start (window-start win)))
-         (if (< win-start (cdr acc))
-             (cons win win-start)
-           acc))
+         (let ((win-start (window-start win)))
+           (if (< win-start (cdr acc))
+               (cons win win-start)
+             acc))
        acc))
    (window-stool--windows-displaying-buf buf)
    :initial-value (cons nil most-positive-fixnum)))
@@ -352,7 +352,11 @@ See: \"window-stool-use-overlays\""
 
              (if window-stool-use-overlays
                  (progn
-                   (window-stool-window--delete nil)
+                   ;; turn off the non-overlay stuff if they're enabled
+                   (window-stool-window--delete)
+                   (remove-hook 'post-command-hook #'window-stool-window--create)
+                   (window-stool-window--remove-window-function-advice)
+
                    (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
                    ;; little hack to redisplay the overlay after a delay in the cases where
                    ;; the overlay ends up in an odd position/not displayed and window-scroll-functions don't run
