@@ -237,13 +237,13 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
             (let* ((ol-beg-pos display-start)
                    (ol-end-pos (save-excursion
                                  (goto-char display-start)
-                                 (forward-line)
+                                 (forward-visible-line 1)
                                  (line-end-position)))
                    ;; There's some bugginess if we don't have end-pos be on the next line, cause depending on the order of operations we might scroll past our overlay after redisplay.
                    ;; The solution here is to make the overlay 2 lines and just show the "covered" second line as part of the overlay
                    (covered-line (save-excursion
                                    (goto-char display-start)
-                                   (forward-line)
+                                   (forward-visible-line 1)
                                    (buffer-substring
                                     (line-beginning-position)
                                     (line-end-position))))
@@ -272,7 +272,7 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
         (when (and ctx (or (eq last-command 'evil-scroll-line-up)
                            (eq last-command 'viper-scroll-down-one)
                            (eq last-command 'scroll-down-line)))
-          (forward-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
+          (forward-visible-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
 
           ;; So we don't need to double scroll when window start is in the middle of a visual line split
           (when (= (save-excursion
