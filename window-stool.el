@@ -259,7 +259,17 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
                                    (buffer-substring
                                     (line-beginning-position)
                                     (line-end-position))))
-                   (context-str-1 (when ctx (cl-reduce (lambda (acc str) (concat acc str)) ctx)))
+                   (context-str-1 (when ctx (cl-reduce (lambda (acc str)
+                                                         (let* ((truncated (truncate-string-to-width str (1- (window-size window t)) 0 nil "\n"))
+                                                                (truncated-respecting-word-boundaries
+                                                                 (if (string= truncated str) ;; this means we didn't need to truncate
+                                                                     truncated
+                                                                   (truncate-string-to-width truncated
+                                                                                             (- (length truncated) (1+ (string-match "[[:space:]]" (reverse truncated))))
+                                                                                             0 nil "\n"))))
+                                                           (concat acc truncated-respecting-word-boundaries)))
+                                                       ctx)))
+
                    (context-str (progn
                                   (add-face-text-property 0 (length context-str-1) '(:inherit window-stool-face) t context-str-1)
                                   (concat context-str-1 covered-line))))
