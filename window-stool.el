@@ -94,6 +94,14 @@ We want to show \"CREATE TABLE xyz\" instead of ( as the upper context here."
 (defvar window-stool-fn nil
   "Function that returns the context in a buffer from point.")
 
+(defconst window-stool--min-height 20
+  "Minimum height (arbitrarily chosen) that a window needs to have for context to be displayed.
+This is a hack to prevent some issues with resizing a window causing Emacs to freeze in the redisplay code.")
+
+(defconst window-stool--min-width 50
+  "Minimum width (arbitrarily chosen) that a window needs to have for context to be displayed.
+This is a hack to prevent some issues with resizing a window causing Emacs to freeze in the redisplay code.")
+
 (defun window-stool-get-org-header-context (pos)
   "Get org header contexts from POS.
 Will move point so caller should call \"save-excursion\"."
@@ -218,7 +226,7 @@ Return a cons cell of the window with its \"window-start\" value."
 (defvar-local window-stool--prev-window-start nil
   "The previous window-start. So we don't run the overlay creation unnecessarily.")
 
-(defun window-stool-single-overlay (display-start)
+(defun window-stool-single-overlay (window display-start)
   "Create/move an overlay to show buffer context above DISPLAY-START.
 Single overlay per buffer.
 Contents of the overlay is based on the results of \"window-stool-fn\"."
@@ -227,7 +235,11 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
          (window-bufs-unique (cl-reduce (lambda (acc win) (cl-pushnew (window-buffer win) acc)) (window-list) :initial-value '()))
          (same-buffer-multiple-windows-p (not (= (length window-bufs) (length window-bufs-unique)))))
     (unless window-stool-overlay (setq-local window-stool-overlay (make-overlay 1 1)))
-    (if (or (eq display-start (point-min)) same-buffer-multiple-windows-p)
+    (if (or
+         (<= (window-size window) window-stool--min-height)
+         (<= (window-size window t) window-stool--min-width)
+         (eq display-start (point-min))
+         same-buffer-multiple-windows-p)
         (delete-overlay window-stool-overlay)
       (progn
         ;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory. Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
@@ -265,6 +277,8 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
   "Fixes some bugginess with scrolling getting stuck when the overlay large."
   (when (and window-stool-overlay
              (overlay-buffer window-stool-overlay)
+             (> (window-size (selected-window)) window-stool--min-height)
+             (> (window-size (selected-window) t) window-stool--min-width)
              (not (eq (window-start) window-stool--prev-window-start)) (buffer-file-name))
     (let* ((ctx-1 (save-excursion (funcall window-stool-fn (window-start))))
            (ctx (window-stool--truncate-context ctx-1)))
@@ -284,7 +298,7 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
                      (line-beginning-position)))
             (scroll-down-line)))))))
 
-(defun window-stool--scroll-function (_ display-start)
+(defun window-stool--scroll-function (window display-start)
   "Convenience wrapper for \"window-scroll-functions\".
 Only requires use of DISPLAY-START.
 See: \"window-stool-single-overlay\"."
@@ -295,7 +309,7 @@ See: \"window-stool-single-overlay\"."
     ;; for org mode, if we hide the font decoration symbols for instance:
     ;; *This is bold* then display-start would point to the "T" instead of
     ;; the first "*" and (scroll-down 1) would complain about beginning of buffer
-    (window-stool-single-overlay (save-excursion (goto-char display-start) (line-beginning-position)))))
+    (window-stool-single-overlay window (save-excursion (goto-char display-start) (line-beginning-position)))))
 
 (defvar window-stool-timer nil
   "Idle timer used to reset the window-stool overlay if for some reason, it gets out of position
@@ -309,16 +323,34 @@ and the normal mechanism for repositioning it doesn't run (via \"window-scroll-f
 Re-positions the window-stool overlay if it gets out of position.
 
 Cancels \"window-stool-timer\" if \"window-stool-buffer-list\" is empty."
-  (when (and (boundp 'window-stool-mode)
-             window-stool-mode
-             window-stool-fn
-             (not (cl-remove-if-not
-                   (lambda (o) (eq (overlay-get o 'type) 'window-stool--buffer-overlay))
-                   (overlays-at (window-start)))))
-    (window-stool--scroll-function nil (window-start)))
+  (save-window-excursion
+    (dolist (win (window-list))
+      (select-window win)
+      (when (and (boundp 'window-stool-mode)
+                 window-stool-mode
+                 window-stool-fn
+                 (not (cl-remove-if-not
+                       (lambda (o) (eq (overlay-get o 'type) 'window-stool--buffer-overlay))
+                       (overlays-at (window-start)))))
+        (window-stool--scroll-function nil (window-start)))))
   (when (= (length window-stool-buffer-list) 0)
     (cancel-timer window-stool-timer)
     (setq window-stool-timer nil)))
+
+(defun window-stool--window-resize-before-advice (&rest _)
+  "Advice to prevent a Emacs hanging when windows are resized with the window stool overlay."
+  (dolist (win (window-list))
+    (with-current-buffer (window-buffer win)
+      (ignore-errors (delete-overlay window-stool-overlay)))))
+
+(defun window-stool--window-resize-after-advice (&rest _)
+  "Advice to rebuild the overlays after window resizing."
+  (dolist (window (window-list))
+    (with-current-buffer (window-buffer window)
+      (when (and (boundp 'window-stool-mode)
+                 window-stool-mode
+                 window-stool-fn)
+                 (window-stool-single-overlay window (save-excursion (goto-char (window-start window)) (line-beginning-position)))))))
 
 ;;;###autoload
 (define-minor-mode window-stool-mode
@@ -357,6 +389,9 @@ See: \"window-stool-use-overlays\""
                    (remove-hook 'post-command-hook #'window-stool-window--create)
                    (window-stool-window--remove-window-function-advice)
 
+                   (advice-add #'window-resize :before #'window-stool--window-resize-before-advice)
+                   (advice-add #'window-resize :after #'window-stool--window-resize-after-advice)
+
                    (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
                    ;; little hack to redisplay the overlay after a delay in the cases where
                    ;; the overlay ends up in an odd position/not displayed and window-scroll-functions don't run
@@ -392,6 +427,8 @@ See: \"window-stool-use-overlays\""
                  (remove #'window-stool--scroll-function window-scroll-functions))
            (setq window-stool-buffer-list (cl-remove (current-buffer) window-stool-buffer-list))
            (kill-local-variable 'scroll-margin)
+           (advice-remove #'window-resize #'window-stool--window-resize-before-advice)
+           (advice-remove #'window-resize #'window-stool--window-resize-after-advice)
 
            ;; cleanup window stuff
            (when (boundp 'window-stool--prev-window-min-height) (setq window-min-height window-stool--prev-window-min-height))
