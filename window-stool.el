@@ -335,7 +335,7 @@ Re-positions the window-stool overlay if it gets out of position.
 Cancels \"window-stool-timer\" if \"window-stool-buffer-list\" is empty."
   (save-window-excursion
     (dolist (win (window-list))
-      (select-window win)
+      (select-window win t)
       (when (and (boundp 'window-stool-mode)
                  window-stool-mode
                  window-stool-fn
