@@ -33,6 +33,7 @@
   ;; Fixes issue with window stool window sometimes sticking around after #'delete-window
   ;; if the next selected window was a non file visiting buffer.
   ;; Needs post-command-hook attached to this to be non-local
+  (when (overlayp window-stool-overlay) (delete-overlay window-stool-overlay))
   (window-stool-window--delete)
   ;; only in file visiting buffers
   (when (buffer-file-name)
@@ -83,8 +84,6 @@ Doesn't need to move back to the original window on error,since context window i
 
 (defun window-stool-window--balance-advice-before (&rest _)
   (window-stool-window--fit-to-buffer))
-
-
 
 (defun window-stool-window--advise-window-functions ()
   "Advise a variety of window and buffer functions for interoperability with the context window."
