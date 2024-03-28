@@ -59,7 +59,10 @@ i.e. suppose we have
 Setting this to 2, would take the defun and the first progn.
 Similar behavior for \"window-stool-n-from-bottom\".
 Except we take from the end (the second and third progn).
-Setting both of these to zero keeps all context."
+Setting both of these to zero keeps all context.
+
+This needs to be increased to one more than what you would have
+normally for the non overlay version."
   :type '(natnum))
 
 (defcustom window-stool-n-from-bottom 2
@@ -226,6 +229,9 @@ Return a cons cell of the window with its \"window-start\" value."
 (defvar-local window-stool--prev-window-start nil
   "The previous window-start. So we don't run the overlay creation unnecessarily.")
 
+(defvar-local window-stool--prev-ctx nil)
+(defvar-local window-stool--prev-indentation 0)
+
 (defun window-stool-single-overlay (window display-start)
   "Create/move an overlay to show buffer context above DISPLAY-START.
 Single overlay per buffer.
@@ -235,12 +241,13 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
          (window-bufs-unique (cl-reduce (lambda (acc win) (cl-pushnew (window-buffer win) acc)) (window-list) :initial-value '()))
          (same-buffer-multiple-windows-p (not (= (length window-bufs) (length window-bufs-unique)))))
     (unless window-stool-overlay (setq-local window-stool-overlay (make-overlay 1 1)))
-    (if (or
-         (<= (window-size window) window-stool--min-height)
-         (<= (window-size window t) window-stool--min-width)
-         (eq display-start (point-min))
-         same-buffer-multiple-windows-p)
-        (delete-overlay window-stool-overlay)
+    (if (and window-stool-use-overlays
+             (or
+              (<= (window-size window) window-stool--min-height)
+              (<= (window-size window t) window-stool--min-width)
+              (eq display-start (point-min))
+              same-buffer-multiple-windows-p))
+          (delete-overlay window-stool-overlay)
       (progn
         ;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory. Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
         (when (and (buffer-file-name) (not (string-match "\\.git" (buffer-file-name))))
@@ -320,6 +327,18 @@ See: \"window-stool-single-overlay\"."
     ;; *This is bold* then display-start would point to the "T" instead of
     ;; the first "*" and (scroll-down 1) would complain about beginning of buffer
     (window-stool-single-overlay window (save-excursion (goto-char display-start) (line-beginning-position)))))
+
+(defun window-stool--selection-change-function (frame-or-window)
+  (if (and (windowp frame-or-window) (window-live-p frame-or-window))
+      (save-window-excursion
+        (select-window frame-or-window)
+        (window-stool--scroll-function frame-or-window (window-start frame-or-window)))
+    (let ((prev-window (and (framep frame-or-window) (frame-old-selected-window frame-or-window))))
+      (when (and prev-window (window-live-p prev-window))
+        (save-window-excursion
+          (select-window prev-window)
+          (when window-stool-fn
+            (window-stool--scroll-function prev-window (window-start prev-window))))))))
 
 (defvar window-stool-timer nil
   "Idle timer used to reset the window-stool overlay if for some reason, it gets out of position
@@ -428,6 +447,8 @@ See: \"window-stool-use-overlays\""
 
                  (setq window-stool--prev-window-min-height window-min-height)
                  (setq window-min-height 0)
+                 (window-divider-mode -1)
+                 (add-hook 'window-selection-change-functions #'window-stool--selection-change-function)
                  (add-hook 'post-command-hook #'window-stool-window--create)
                  (window-stool-window--advise-window-functions))))
     ;; clean up overlay stuff
