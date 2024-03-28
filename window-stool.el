@@ -94,7 +94,7 @@ CREATE TABLE xyz
 We want to show \"CREATE TABLE xyz\" instead of ( as the upper context here."
   :type '(alist :key-type symbol :value-type regexp))
 
-(defvar window-stool-fn nil
+(defvar window-stool-fn #'ignore
   "Function that returns the context in a buffer from point.")
 
 (defconst window-stool--min-height 20
@@ -337,7 +337,7 @@ See: \"window-stool-single-overlay\"."
       (when (and prev-window (window-live-p prev-window))
         (save-window-excursion
           (select-window prev-window)
-          (when window-stool-fn
+          (when (not (eq window-stool-fn #'ignore))
             (window-stool--scroll-function prev-window (window-start prev-window))))))))
 
 (defvar window-stool-timer nil
@@ -357,7 +357,7 @@ Cancels \"window-stool-timer\" if \"window-stool-buffer-list\" is empty."
       (select-window win t)
       (when (and (boundp 'window-stool-mode)
                  window-stool-mode
-                 window-stool-fn
+                 (not (eq window-stool-fn #'ignore))
                  (not (cl-remove-if-not
                        (lambda (o) (eq (overlay-get o 'type) 'window-stool--buffer-overlay))
                        (overlays-at (window-start)))))
@@ -378,7 +378,7 @@ Cancels \"window-stool-timer\" if \"window-stool-buffer-list\" is empty."
     (with-current-buffer (window-buffer window)
       (when (and (boundp 'window-stool-mode)
                  window-stool-mode
-                 window-stool-fn)
+                 (not (eq window-stool-fn #'ignore)))
                  (window-stool-single-overlay window (save-excursion (goto-char (window-start window)) (line-beginning-position)))))))
 
 ;;;###autoload

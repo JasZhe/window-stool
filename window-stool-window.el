@@ -36,7 +36,7 @@
   (when (overlayp window-stool-overlay) (delete-overlay window-stool-overlay))
   (window-stool-window--delete)
   ;; only in file visiting buffers
-  (when (buffer-file-name)
+  (when (and (buffer-file-name) (not (eq window-stool-fn #'ignore)))
     (let* ((ctx-1 (window-stool--truncate-context (save-excursion (funcall window-stool-fn (window-start)))))
            (ctx (if (not (eq major-mode 'org-mode)) (cl-subseq ctx-1 0 (1- (length ctx-1))) ctx-1))
            (buf-name window-stool-window--buffer-name)
