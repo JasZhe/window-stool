@@ -27,7 +27,7 @@
 (setq window-stool-window nil)
 (setq window-stool-window--buffer-name " *Window Stool*")
 
-(defun window-stool-window--create ()
+(defun window-stool-window--create (&rest _)
   "Create a code context window above the currently selected window."
 
   ;; Fixes issue with window stool window sometimes sticking around after #'delete-window
@@ -110,8 +110,7 @@ Doesn't need to move back to the original window on error,since context window i
   (advice-add 'enlarge-window :after #'window-stool-window--create-ad)
 
   (advice-add 'windmove-up :after #'window-stool-window--windmove-up-advice)
-  (advice-add 'windmove-down :after #'window-stool-window--windmove-down-advice)
-  (advice-add 'split-window :before #'window-stool-window--delete))
+  (advice-add 'windmove-down :after #'window-stool-window--windmove-down-advice))
 
 (defun window-stool-window--remove-window-function-advice ()
   (advice-remove 'display-buffer #'window-stool-window--delete)
@@ -125,8 +124,7 @@ Doesn't need to move back to the original window on error,since context window i
   (advice-remove 'enlarge-window #'window-stool-window--create-ad)
 
   (advice-remove 'windmove-up #'window-stool-window--windmove-up-advice)
-  (advice-remove 'windmove-down #'window-stool-window--windmove-down-advice)
-  (advice-remove 'split-window #'window-stool-window--delete))
+  (advice-remove 'windmove-down #'window-stool-window--windmove-down-advice))
 
 (provide 'window-stool-window)
 ;;; window-stool-window.el ends here
