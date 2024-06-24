@@ -68,6 +68,11 @@ When we're inside the block, we want to see the if statement instead of just "{"
 Also note, that this will add some advice to some window movement commands so that we can "skip" over the context window, in the case where you have windows on top of each other.
 It's also recommended to turn off =window-divider-mode= or set =window-divider-default-places= to =right-only= since it makes the context window stick out less, like how an overlay would look.
 
+Another thing that's useful if you want the window-stool to appear with consult previews is to add
+#+begin_src elisp
+(add-to-list 'consult-preview-allowed-hooks #'window-stool-mode)
+#+end_src
+
 
 * Screenshot/Video
 [[file:screenshots/without-overlay.png]]
