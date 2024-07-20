@@ -232,11 +232,27 @@ Return a cons cell of the window with its \"window-start\" value."
 (defvar-local window-stool--prev-ctx nil)
 (defvar-local window-stool--prev-indentation 0)
 
+(defcustom window-stool-ignore-buffer-regexps nil
+  "List of buffer regexps to disable window-stool overlay on.
+Different from `window-stool-ignore-file-regexps'"
+  :type '(repeat regexp))
+
+;; Some git operations i.e. commit/rebase open up a buffer that we can edit
+;; which is based a temporary file in the .git directory.
+;; Most of the time I don't really want the overlay in those buffers so
+;; I've opted to disable them here via regexps.
+(defcustom window-stool-ignore-file-regexps '("\\.git")
+  "List of file name regexps to disable window-stool overlay on.
+Different from `window-stool-ignore-buffer-regexps'"
+  :type '(repeat regexp))
+
 (defun window-stool-single-overlay (window display-start)
   "Create/move an overlay to show buffer context above DISPLAY-START.
 Single overlay per buffer.
 Contents of the overlay is based on the results of \"window-stool-fn\"."
-  ;; Issue with having multiple windows displaying the same buffer since now there's multiple "window starts" which make it difficult to deal with. Simpler to temporarily delete the overlays until only a single window shows the buffer for now.
+  ;; Issue with having multiple windows displaying the same buffer since now
+  ;; there's multiple "window starts" which make it difficult to deal with.
+  ;; Simpler to temporarily delete the overlays until only a single window shows the buffer for now.
   (let* ((window-bufs (cl-reduce (lambda (acc win) (push (window-buffer win) acc)) (window-list) :initial-value '()))
          (window-bufs-unique (cl-reduce (lambda (acc win) (cl-pushnew (window-buffer win) acc)) (window-list) :initial-value '()))
          (same-buffer-multiple-windows-p (not (= (length window-bufs) (length window-bufs-unique)))))
@@ -250,7 +266,11 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
           (delete-overlay window-stool-overlay)
       (progn
         ;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory. Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
-        (when (and (buffer-file-name) (not (string-match "\\.git" (buffer-file-name))))
+        (when (and (not (or
+                         (cl-find-if (lambda (r) (and buffer-file-name (string-match r buffer-file-name)))
+                                     window-stool-ignore-file-regexps)
+                         (cl-find-if (lambda (r) (string-match r (buffer-name)))
+                                     window-stool-ignore-file-regexps))))
           (let* ((ctx-1 (save-excursion (funcall window-stool-fn display-start)))
                  (ctx (window-stool--truncate-context ctx-1)))
             (let* ((ol-beg-pos display-start)
@@ -258,8 +278,10 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
                                  (goto-char display-start)
                                  (forward-visible-line 1)
                                  (line-end-position)))
-                   ;; There's some bugginess if we don't have end-pos be on the next line, cause depending on the order of operations we might scroll past our overlay after redisplay.
-                   ;; The solution here is to make the overlay 2 lines and just show the "covered" second line as part of the overlay
+                   ;; There's some bugginess if we don't have end-pos be on the next line,
+                   ;; cause depending on the order of operations we might scroll past our overlay after redisplay.
+                   ;; The solution here is to make the overlay 2 lines and just show
+                   ;; the "covered" second line as part of the overlay
                    (covered-line (save-excursion
                                    (goto-char display-start)
                                    (forward-visible-line 1)
