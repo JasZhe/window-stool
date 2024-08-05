@@ -232,6 +232,40 @@ Return a cons cell of the window with its \"window-start\" value."
 (defvar-local window-stool--prev-ctx nil)
 (defvar-local window-stool--prev-indentation 0)
 
+(cl-defstruct window-stool-overlay-display-info
+  "Struct to with info to inform how to display overlays.
+Mostly in the case where we have multiple windows showing the same buffer.
+If the two windows overlap, then display the overlay
+in the one with the smaller display-start.
+Otherwise we want to show overlays for both windows."
+  overlay window display-start display-end)
+
+(defvar window-stool-buffer-overlay-alist '()
+  "An alist for buffer to a list of overlay-window cons cells.
+Most of the time there will only be one overlay unless
+we have multiple windows displaying the same buffer.")
+
+
+(defun window-stool--window-config-change-function ()
+  "Update the overlay list upon a window configuration change."
+  (setq window-stool-buffer-overlay-alist nil)
+  (dolist (win (window-list))
+    (let* ((buffer (window-buffer win))
+           (win-start (window-start win))
+           (buffer-window (assq buffer window-stool-buffer-overlay-alist)))
+      (if buffer-window
+          ;; If multiple windows are showing the same buffer, assoc the smaller display start
+          (when (< win-start (window-start (cadr buffer-window)))
+            (setq window-stool-buffer-overlay-alist
+                  (assq-delete-all buffer window-stool-buffer-overlay-alist))
+            (cl-pushnew (list buffer win) window-stool-buffer-overlay-alist)
+            )
+        (cl-pushnew (list buffer win) window-stool-buffer-overlay-alist)
+        )
+      )
+    ))
+(window-stool--window-config-change-function)
+
 (defcustom window-stool-ignore-buffer-regexps nil
   "List of buffer regexps to disable window-stool overlay on.
 Different from `window-stool-ignore-file-regexps'"
@@ -253,64 +287,102 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
   ;; Issue with having multiple windows displaying the same buffer since now
   ;; there's multiple "window starts" which make it difficult to deal with.
   ;; Simpler to temporarily delete the overlays until only a single window shows the buffer for now.
-  (let* ((window-bufs (cl-reduce (lambda (acc win) (push (window-buffer win) acc)) (window-list) :initial-value '()))
-         (window-bufs-unique (cl-reduce (lambda (acc win) (cl-pushnew (window-buffer win) acc)) (window-list) :initial-value '()))
-         (same-buffer-multiple-windows-p (not (= (length window-bufs) (length window-bufs-unique)))))
-    (unless window-stool-overlay (setq-local window-stool-overlay (make-overlay 1 1)))
-    (if (and window-stool-use-overlays
-             (or
-              (<= (window-size window) window-stool--min-height)
-              (<= (window-size window t) window-stool--min-width)
-              (eq display-start (point-min))
-              same-buffer-multiple-windows-p))
-          (delete-overlay window-stool-overlay)
-      (progn
-        ;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory. Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
-        (when (and (not (or
-                         (cl-find-if (lambda (r) (and buffer-file-name (string-match r buffer-file-name)))
-                                     window-stool-ignore-file-regexps)
-                         (cl-find-if (lambda (r) (string-match r (buffer-name)))
-                                     window-stool-ignore-file-regexps))))
-          (let* ((ctx-1 (save-excursion (funcall window-stool-fn display-start)))
-                 (ctx (window-stool--truncate-context ctx-1)))
-            (let* ((ol-beg-pos display-start)
-                   (ol-end-pos (save-excursion
-                                 (goto-char display-start)
-                                 (forward-visible-line 1)
-                                 (line-end-position)))
-                   ;; There's some bugginess if we don't have end-pos be on the next line,
-                   ;; cause depending on the order of operations we might scroll past our overlay after redisplay.
-                   ;; The solution here is to make the overlay 2 lines and just show
-                   ;; the "covered" second line as part of the overlay
-                   (covered-line (save-excursion
-                                   (goto-char display-start)
-                                   (forward-visible-line 1)
-                                   (buffer-substring
-                                    (line-beginning-position)
-                                    (line-end-position))))
-                   (context-str-1 (when ctx (cl-reduce (lambda (acc str)
-                                                         (let* ((truncated (truncate-string-to-width str (1- (window-size window t)) 0 nil "\n"))
-                                                                (truncated-respecting-word-boundaries
-                                                                 (if (string= truncated str) ;; this means we didn't need to truncate
-                                                                     truncated
-                                                                   (truncate-string-to-width truncated
-                                                                                             (- (length truncated) (1+ (string-match "[[:space:]]" (reverse truncated))))
-                                                                                             0 nil "\n"))))
-                                                           (concat acc truncated-respecting-word-boundaries)))
-                                                       ctx)))
 
-                   (context-str (progn
-                                  (add-face-text-property 0 (length context-str-1) '(:inherit window-stool-face) t context-str-1)
-                                  (concat context-str-1 covered-line))))
-
-              (when window-stool-overlay
-                (move-overlay window-stool-overlay ol-beg-pos ol-end-pos)
-                (overlay-put window-stool-overlay 'type 'window-stool--buffer-overlay)
-                (overlay-put window-stool-overlay 'priority 0)
-                (overlay-put window-stool-overlay 'display context-str))
+  (catch 'ahh
+    (setq window-stool-buffer-overlay-alist nil)
+    (dolist (win (window-list))
+      (let* ((buffer (window-buffer win))
+             (win-start (window-start win))
+             (buffer-window (assq buffer window-stool-buffer-overlay-alist)))
+        (if buffer-window
+            ;; If multiple windows are showing the same buffer, assoc the smaller display start
+            (when (< win-start (window-start (cadr buffer-window)))
+              (setq window-stool-buffer-overlay-alist
+                    (assq-delete-all buffer window-stool-buffer-overlay-alist))
+              (cl-pushnew (list buffer win) window-stool-buffer-overlay-alist)
               )
-            (setq window-stool--prev-ctx ctx))))))
-  (setq-local window-stool--prev-window-start (window-start)))
+          (cl-pushnew (list buffer win) window-stool-buffer-overlay-alist)
+          )
+        )
+      )
+
+    (let* ((buf (window-buffer window))
+           (windows (seq-filter (lambda (w)
+                                  (and
+                                   (not (eq w window))
+                                   (eq buf (window-buffer w))
+                                   (eq (window-start w) (window-start window)))
+                                  )
+                                (window-list)))
+           )
+      (when windows
+        (scroll-up-line (1+ (length window-stool--prev-ctx)))
+        (throw 'ahh "asd")
+        )
+      )
+
+    (let* ((buffer-window (assq (window-buffer window) window-stool-buffer-overlay-alist)))
+      (unless window-stool-overlay (setq-local window-stool-overlay (make-overlay 1 1)))
+      (if (and buffer-window (eq (cadr buffer-window) window))
+          (progn
+            (if (and window-stool-use-overlays
+                     (or
+                      (<= (window-size window) window-stool--min-height)
+                      (<= (window-size window t) window-stool--min-width)
+                      (eq display-start (point-min))
+                      (not buffer-window)
+                      (< (window-start (cadr buffer-window)) (window-start window))
+                      ))
+                (delete-overlay window-stool-overlay)
+              (progn
+                (when (and (not (or
+                                 (cl-find-if (lambda (r) (and buffer-file-name (string-match r buffer-file-name)))
+                                             window-stool-ignore-file-regexps)
+                                 (cl-find-if (lambda (r) (string-match r (buffer-name)))
+                                             window-stool-ignore-file-regexps))))
+                  (let* ((ctx-1 (save-excursion (funcall window-stool-fn display-start)))
+                         (ctx (window-stool--truncate-context ctx-1)))
+                    (let* ((ol-beg-pos display-start)
+                           (ol-end-pos (save-excursion
+                                         (goto-char display-start)
+                                         (forward-visible-line 1)
+                                         (line-end-position)))
+                           ;; There's some bugginess if we don't have end-pos be on the next line,
+                           ;; cause depending on the order of operations we might scroll past our overlay after redisplay.
+                           ;; The solution here is to make the overlay 2 lines and just show
+                           ;; the "covered" second line as part of the overlay
+                           (covered-line (save-excursion
+                                           (goto-char display-start)
+                                           (forward-visible-line 1)
+                                           (buffer-substring
+                                            (line-beginning-position)
+                                            (line-end-position))))
+                           (context-str-1 (when ctx (cl-reduce (lambda (acc str)
+                                                                 (let* ((truncated (truncate-string-to-width str (1- (window-size window t)) 0 nil "\n"))
+                                                                        (truncated-respecting-word-boundaries
+                                                                         (if (string= truncated str) ;; this means we didn't need to truncate
+                                                                             truncated
+                                                                           (truncate-string-to-width truncated
+                                                                                                     (- (length truncated) (1+ (string-match "[[:space:]]" (reverse truncated))))
+                                                                                                     0 nil "\n"))))
+                                                                   (concat acc truncated-respecting-word-boundaries)))
+                                                               ctx)))
+
+                           (context-str (progn
+                                          (add-face-text-property 0 (length context-str-1) '(:inherit window-stool-face) t context-str-1)
+                                          (concat context-str-1 covered-line))))
+
+                      (when window-stool-overlay
+                        (move-overlay window-stool-overlay ol-beg-pos ol-end-pos)
+                        (overlay-put window-stool-overlay 'type 'window-stool--buffer-overlay)
+                        (overlay-put window-stool-overlay 'priority 0)
+                        (overlay-put window-stool-overlay 'display context-str))
+                      )
+                    (setq window-stool--prev-ctx ctx)))))
+            (setq-local window-stool--prev-window-start (window-start))
+            )))
+    )
+  )
 
 (defun window-stool--scroll-overlay-into-position ()
   "Fixes some bugginess with scrolling getting stuck when the overlay large."
@@ -320,7 +392,7 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
              (> (window-size (selected-window) t) window-stool--min-width)
              (not (eq (window-start) window-stool--prev-window-start)) (buffer-file-name))
     (let* ((ctx-1 (save-excursion (funcall window-stool-fn (window-start))))
-           (ctx (window-stool--truncate-context ctx-1)))
+           (ctx (window-stool--truncate-context ctx-1))) ;
       (ignore-errors
         (when (and ctx (or (eq last-command 'evil-scroll-line-up)
                            (eq last-command 'viper-scroll-down-one)
@@ -369,24 +441,27 @@ and the normal mechanism for repositioning it doesn't run (via \"window-scroll-f
 (defvar window-stool-buffer-list '()
   "List of buffers, window-stool is enabled in.")
 
-(defun window-stool-idle-fn ()
-  "Function to be used in an idle timer.
-Re-positions the window-stool overlay if it gets out of position.
+;; (defun window-stool-idle-fn ()
+;;   "Function to be used in an idle timer.
+;; Re-positions the window-stool overlay if it gets out of position.
 
-Cancels \"window-stool-timer\" if \"window-stool-buffer-list\" is empty."
-  (save-window-excursion
-    (dolist (win (window-list))
-      (select-window win t)
-      (when (and (boundp 'window-stool-mode)
-                 window-stool-mode
-                 (not (eq window-stool-fn #'ignore))
-                 (not (cl-remove-if-not
-                       (lambda (o) (eq (overlay-get o 'type) 'window-stool--buffer-overlay))
-                       (overlays-at (window-start)))))
-        (window-stool--scroll-function nil (window-start)))))
-  (when (= (length window-stool-buffer-list) 0)
-    (cancel-timer window-stool-timer)
-    (setq window-stool-timer nil)))
+;; Cancels \"window-stool-timer\" if \"window-stool-buffer-list\" is empty."
+;;   (save-window-excursion
+;;     (dolist (win (window-list))
+;;       (select-window win t)
+;;       (when (and (boundp 'window-stool-mode)
+;;                  window-stool-mode
+;;                  (not (eq window-stool-fn #'ignore))
+;;                  (not (cl-remove-if-not
+;;                        (lambda (o) (eq (overlay-get o 'type) 'window-stool--buffer-overlay))
+;;                        (overlays-at (window-start)))))
+;;         (window-stool--scroll-function nil (window-start)))))
+;;   (when (= (length window-stool-buffer-list) 0)
+;;     (cancel-timer window-stool-timer)
+;;     (setq window-stool-timer nil)))
+
+;; (cancel-timer window-stool-timer)
+(defun window-stool-idle-fn () )
 
 (defun window-stool--window-resize-before-advice (&rest _)
   "Advice to prevent a Emacs hanging when windows are resized with the window stool overlay."
@@ -401,7 +476,7 @@ Cancels \"window-stool-timer\" if \"window-stool-buffer-list\" is empty."
       (when (and (boundp 'window-stool-mode)
                  window-stool-mode
                  (not (eq window-stool-fn #'ignore)))
-                 (window-stool-single-overlay window (save-excursion (goto-char (window-start window)) (line-beginning-position)))))))
+        (window-stool-single-overlay window (save-excursion (goto-char (window-start window)) (line-beginning-position)))))))
 
 ;;;###autoload
 (define-minor-mode window-stool-mode
@@ -469,6 +544,14 @@ See: \"window-stool-use-overlays\""
 
                  (setq window-stool--prev-window-min-height window-min-height)
                  (setq window-min-height 0)
+                 
+                 (remove-hook 'post-command-hook #'window-stool--scroll-overlay-into-position t)
+                 (setq window-scroll-functions
+                       (remove #'window-stool--scroll-function window-scroll-functions))
+
+                 (advice-remove #'window-resize #'window-stool--window-resize-before-advice)
+                 (advice-remove #'window-resize #'window-stool--window-resize-after-advice)
+                 
                  (window-divider-mode -1)
                  (add-hook 'window-selection-change-functions #'window-stool--selection-change-function)
                  (add-hook 'post-command-hook #'window-stool-window--create)
