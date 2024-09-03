@@ -223,7 +223,7 @@ Return a cons cell of the window with its \"window-start\" value."
    (window-stool--windows-displaying-buf buf)
    :initial-value (cons nil most-positive-fixnum)))
 
-(defvar-local window-stool-overlays nil
+(defvar-local window-stool-overlays '()
   "List of overlays, each representing one context line.")
 
 (defvar-local window-stool--prev-window-start nil
@@ -250,16 +250,17 @@ Different from `window-stool-ignore-buffer-regexps'"
   "Get the code from the current window position.
 Then display each line as a separate overlay at the top of the window.
 Should be used as a window-scroll-function taking WINDOW and DISPLAY-START."
-    (unless window-stool-overlays
+    (unless (= (length window-stool-overlays) (+ window-stool-n-from-top window-stool-n-from-bottom))
       (setq-local window-stool-overlays
                   (cl-loop repeat (+ window-stool-n-from-top window-stool-n-from-bottom)
                            collect (make-overlay 1 1))))
-    ;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory. Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
-    (when (and (not (or
-                     (cl-find-if (lambda (r) (and buffer-file-name (string-match r buffer-file-name)))
-                                 window-stool-ignore-file-regexps)
-                     (cl-find-if (lambda (r) (string-match r (buffer-name)))
-                                 window-stool-ignore-file-regexps))))
+    ;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory.
+    ;; Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
+    (unless (or
+             (cl-find-if (lambda (r) (and buffer-file-name (string-match r buffer-file-name)))
+                         window-stool-ignore-file-regexps)
+             (cl-find-if (lambda (r) (string-match r (buffer-name)))
+                         window-stool-ignore-file-regexps))
       (let* ((ctx-1 (save-excursion (funcall window-stool-fn display-start)))
              (ctx (window-stool--truncate-context ctx-1))
              (line 0))
@@ -357,7 +358,7 @@ Cancels \"window-stool-timer\" if \"window-stool-buffer-list\" is empty."
                  (not (cl-remove-if-not
                        (lambda (o) (eq (overlay-get o 'type) 'window-stool--buffer-overlay))
                        (overlays-at (window-start)))))
-        (window-stool--scroll-function nil (window-start)))))
+        (window-stool--scroll-function (selected-window) (window-start)))))
   (when (= (length window-stool-buffer-list) 0)
     (cancel-timer window-stool-timer)
     (setq window-stool-timer nil)))
