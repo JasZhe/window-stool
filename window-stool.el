@@ -246,6 +246,8 @@ Different from `window-stool-ignore-file-regexps'"
 Different from `window-stool-ignore-buffer-regexps'"
   :type '(repeat regexp))
 
+(defvar-local fix-scrolling-past-visually-split-lines nil)
+
 (defun window-stool-display-context (window display-start)
   "Get the code from the current window position.
 Then display each line as a separate overlay at the top of the window.
@@ -267,20 +269,18 @@ Should be used as a window-scroll-function taking WINDOW and DISPLAY-START."
         (when ctx
           (dolist (c ctx)
             (setq c (string-trim-right c))
-            (let* ((truncated (truncate-string-to-width c (1- (window-size window t)) 0 nil "\n"))
+            (let* ((truncated (truncate-string-to-width c (1- (window-size window t)) 0 nil ""))
                    (truncated-respecting-word-boundaries
                     (if (string= truncated c) ;; this means we didn't need to truncate
                         truncated
                       (truncate-string-to-width truncated
                                                 (- (length truncated) (1+ (string-match "[[:space:]]" (reverse truncated))))
-                                                0 nil "\n"))))
+                                                0 nil ""))))
 
               (setq c truncated-respecting-word-boundaries)
               (let* ((beg (save-excursion
                             (goto-char display-start)
-                            (cl-loop for i from 1 to line
-                                     do
-                                     (forward-line))
+                            (line-move line)
                             (line-beginning-position)))
                      (add-newline nil)
                      (end (save-excursion (goto-char beg) (if (= beg (line-end-position))
@@ -307,10 +307,45 @@ Should be used as a window-scroll-function taking WINDOW and DISPLAY-START."
                    (let ((ov (nth i window-stool-overlays)))
                      (when (overlayp ov) (delete-overlay ov))))
           )
+        (setq-local fix-scrolling-past-visually-split-lines (save-excursion
+                 (goto-char display-start)
+                 (line-move line)
+                 (let ((st (buffer-substring (line-beginning-position) (line-end-position))))
+                   ;; (message "%d/%d: %s" (length st) (window-width window) st)
+                   )
+                 ;; TODO: need to figure out a better heuristic for this i.e. doom's truncation stuff
+                 (>= (- (line-end-position) (line-beginning-position)) (- (window-width window) 10))
+                 ))
         (setq window-stool--prev-ctx ctx)
         ))
   (setq-local window-stool--prev-window-start (window-start))
   )
+
+(defun window-stool--scroll-overlay-into-position ()
+  "Fixes some bugginess with scrolling getting stuck when the overlay large."
+  (when fix-scrolling-past-visually-split-lines (forward-line 2))
+
+  ;; don't need this stuff
+  (when (and nil (> (window-size (selected-window)) window-stool--min-height)
+             (> (window-size (selected-window) t) window-stool--min-width)
+             (not (eq (window-start) window-stool--prev-window-start)) (buffer-file-name))
+    (let* ((ctx-1 (save-excursion (funcall window-stool-fn (window-start))))
+           (ctx (window-stool--truncate-context ctx-1)))
+      (ignore-errors
+        (when (and ctx (or (eq last-command 'evil-scroll-line-up)
+                           (eq last-command 'viper-scroll-down-one)
+                           (eq last-command 'scroll-down-line)))
+          (forward-visible-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
+
+          ;; So we don't need to double scroll when window start is in the middle of a visual line split
+          (when (= (save-excursion
+                     (goto-char (window-start))
+                     (line-beginning-position))
+                   (save-excursion
+                     (goto-char (window-start))
+                     (line-move-visual -1 t)
+                     (line-beginning-position)))
+            (scroll-down-line)))))))
 
 (defun window-stool--scroll-function (window display-start)
   "Convenience wrapper for \"window-scroll-functions\".
@@ -418,6 +453,8 @@ See: \"window-stool-use-overlays\""
                    (advice-add #'window-resize :before #'window-stool--window-resize-before-advice)
                    (advice-add #'window-resize :after #'window-stool--window-resize-after-advice)
 
+                   (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
+
                    ;; TODO: Temporarily remove until we fix the mutli window setup
                    ;; (unless (timerp window-stool-timer)
                    ;;   (setq window-stool-timer (run-with-idle-timer 0.5 t #'window-stool-idle-fn)))
@@ -447,6 +484,7 @@ See: \"window-stool-use-overlays\""
                  (window-stool-window--advise-window-functions))))
     ;; clean up overlay stuff
     (progn (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
+           (remove-hook 'post-command-hook #'window-stool--scroll-overlay-into-position t)
            (setq window-scroll-functions
                  (remove #'window-stool--scroll-function window-scroll-functions))
            (setq window-stool-buffer-list (cl-remove (current-buffer) window-stool-buffer-list))
