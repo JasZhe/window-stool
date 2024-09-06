@@ -259,11 +259,16 @@ Should be used as a window-scroll-function taking WINDOW and DISPLAY-START."
     ;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory.
     ;; Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
     (unless (or
+             (not (eq window (selected-window)))
              (cl-find-if (lambda (r) (and buffer-file-name (string-match r buffer-file-name)))
                          window-stool-ignore-file-regexps)
              (cl-find-if (lambda (r) (string-match r (buffer-name)))
                          window-stool-ignore-file-regexps))
-      (let* ((ctx-1 (save-excursion (funcall window-stool-fn display-start)))
+      (let* ((ctx-1 (save-excursion (funcall window-stool-fn (save-excursion
+                                                               (goto-char display-start)
+                                                               (forward-line (max (1- (length window-stool--prev-ctx)) 0))
+                                                               (line-beginning-position)
+                                                               ))))
              (ctx (window-stool--truncate-context ctx-1))
              (line 0))
         (when ctx
@@ -309,9 +314,9 @@ Should be used as a window-scroll-function taking WINDOW and DISPLAY-START."
           )
         (setq-local fix-scrolling-past-visually-split-lines (save-excursion
                  (goto-char display-start)
-                 (line-move line)
+                 (line-move (length ctx))
                  (let ((st (buffer-substring (line-beginning-position) (line-end-position))))
-                   ;; (message "%d/%d: %s" (length st) (window-width window) st)
+                   (message "%d/%d: %s" (length st) (window-width window) st)
                    )
                  ;; TODO: need to figure out a better heuristic for this i.e. doom's truncation stuff
                  (>= (- (line-end-position) (line-beginning-position)) (- (window-width window) 10))
@@ -323,28 +328,31 @@ Should be used as a window-scroll-function taking WINDOW and DISPLAY-START."
 
 (defun window-stool--scroll-overlay-into-position ()
   "Fixes some bugginess with scrolling getting stuck when the overlay large."
-  (when fix-scrolling-past-visually-split-lines (forward-line 2))
 
   ;; don't need this stuff
-  (when (and nil (> (window-size (selected-window)) window-stool--min-height)
+  (when (and (> (window-size (selected-window)) window-stool--min-height)
              (> (window-size (selected-window) t) window-stool--min-width)
              (not (eq (window-start) window-stool--prev-window-start)) (buffer-file-name))
     (let* ((ctx-1 (save-excursion (funcall window-stool-fn (window-start))))
            (ctx (window-stool--truncate-context ctx-1)))
       (ignore-errors
-        (when (and ctx (or (eq last-command 'evil-scroll-line-up)
-                           (eq last-command 'viper-scroll-down-one)
-                           (eq last-command 'scroll-down-line)))
-          (forward-visible-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
+        (when (and ctx (or (eq last-command 'evil-scroll-line-down)
+                           (eq last-command 'viper-scroll-up-one)
+                           (eq last-command 'scroll-up-line)))
+          (when fix-scrolling-past-visually-split-lines
+            (forward-line 2)
+            (setq-local fix-scrolling-past-visually-split-lines nil))
+          ;; (forward-visible-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
 
           ;; So we don't need to double scroll when window start is in the middle of a visual line split
-          (when (= (save-excursion
-                     (goto-char (window-start))
-                     (line-beginning-position))
-                   (save-excursion
-                     (goto-char (window-start))
-                     (line-move-visual -1 t)
-                     (line-beginning-position)))
+          (when (and nil
+                     (= (save-excursion
+                          (goto-char (window-start))
+                          (line-beginning-position))
+                        (save-excursion
+                          (goto-char (window-start))
+                          (line-move-visual -1 t)
+                          (line-beginning-position))))
             (scroll-down-line)))))))
 
 (defun window-stool--scroll-function (window display-start)
