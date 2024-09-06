@@ -418,9 +418,8 @@ See: \"window-stool-use-overlays\""
                    (advice-add #'window-resize :before #'window-stool--window-resize-before-advice)
                    (advice-add #'window-resize :after #'window-stool--window-resize-after-advice)
 
-                   ;; TODO: Temporarily remove until we fix the mutli window setup
-                   ;; (unless (timerp window-stool-timer)
-                   ;;   (setq window-stool-timer (run-with-idle-timer 0.5 t #'window-stool-idle-fn)))
+                   (unless (timerp window-stool-timer)
+                     (setq window-stool-timer (run-with-idle-timer 0.5 t #'window-stool-idle-fn)))
 
                    (when (buffer-file-name)
                      (cl-pushnew (current-buffer) window-stool-buffer-list))
