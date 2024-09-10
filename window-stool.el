@@ -253,17 +253,13 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
   ;; Issue with having multiple windows displaying the same buffer since now
   ;; there's multiple "window starts" which make it difficult to deal with.
   ;; Simpler to temporarily delete the overlays until only a single window shows the buffer for now.
-  (let* ((window-bufs (cl-reduce (lambda (acc win) (push (window-buffer win) acc)) (window-list) :initial-value '()))
-         (window-bufs-unique (cl-reduce (lambda (acc win) (cl-pushnew (window-buffer win) acc)) (window-list) :initial-value '()))
-         (same-buffer-multiple-windows-p (not (= (length window-bufs) (length window-bufs-unique)))))
+  (when (eq window (selected-window))
     (unless window-stool-overlay (setq-local window-stool-overlay (make-overlay 1 1)))
     (if (and window-stool-use-overlays
-             (or
-              (<= (window-size window) window-stool--min-height)
-              (<= (window-size window t) window-stool--min-width)
-              (eq display-start (point-min))
-              same-buffer-multiple-windows-p))
-          (delete-overlay window-stool-overlay)
+             (or (<= (window-size window) window-stool--min-height)
+                 (<= (window-size window t) window-stool--min-width)
+                 (eq display-start (point-min))))
+        (delete-overlay window-stool-overlay)
       (progn
         ;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory. Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
         (when (and (not (or
@@ -311,6 +307,21 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
               )
             (setq window-stool--prev-ctx ctx))))))
   (setq-local window-stool--prev-window-start (window-start)))
+
+(defun window-stool--pre-command-hook ()
+  "Fixes an issue with scrolling down a single line by simply deleting the overlay.
+The idea is that the scrolling redisplay logic can then properly calculate where the
+next scroll position should be without our multiline overlay getting in the way.
+Then, `window-stool-single-overlay' will generate the new overlay afterwards since `window-scroll-functions'
+runs after the pre-command hook.
+This fixes the issue with multiple windows showing the same buffer."
+  (when (and (overlayp window-stool-overlay)
+             (or (eq this-command 'evil-scroll-line-down)
+                 (eq this-command 'viper-scroll-up-one)
+                 (eq this-command 'scroll-up-line)))
+    (delete-overlay window-stool-overlay)
+    )
+  )
 
 (defun window-stool--scroll-overlay-into-position ()
   "Fixes some bugginess with scrolling getting stuck when the overlay large."
@@ -444,6 +455,9 @@ See: \"window-stool-use-overlays\""
                    (advice-add #'window-resize :after #'window-stool--window-resize-after-advice)
 
                    (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
+
+                   (add-hook 'pre-command-hook #'window-stool--pre-command-hook nil t)
+
                    ;; little hack to redisplay the overlay after a delay in the cases where
                    ;; the overlay ends up in an odd position/not displayed and window-scroll-functions don't run
                    ;; like when changing tabs
