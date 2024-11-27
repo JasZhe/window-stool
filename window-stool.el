@@ -32,6 +32,7 @@
 (require 'window-stool-window)
 (require 'org)
 (require 'timer)
+(require 'multiline-header "multiline-header.el")
 
 (defgroup window-stool nil
   "A minor mode for providing some additional buffer context via overlays."
@@ -198,30 +199,6 @@ Just returns CTX if both are 0."
              (bottom-ctx (when (> from-bottom 0) (cl-subseq ctx-1 (- from-bottom)))))
         (append top-ctx bottom-ctx))
     ctx))
-
-(defun window-stool--windows-displaying-buf (buf)
-  (cl-reduce
-   (lambda (acc win)
-     (if (eq (window-buffer win) buf)
-         (push win acc)
-       acc))
-   (window-list)
-   :initial-value '()))
-
-(defun window-stool--upper-window-displaying-buf (buf)
-  "Find the window showing \"buf\" with the smallest display-start.
-In other words, the window that shows earlier contents of the buffer.
-Return a cons cell of the window with its \"window-start\" value."
-  (cl-reduce
-   (lambda (acc win)
-     (if (eq (window-buffer win) buf)
-         (let ((win-start (window-start win)))
-           (if (< win-start (cdr acc))
-               (cons win win-start)
-             acc))
-       acc))
-   (window-stool--windows-displaying-buf buf)
-   :initial-value (cons nil most-positive-fixnum)))
 
 (defvar-local window-stool-overlay nil
   "Variable to hold the overlay used in window-stool.")
@@ -454,9 +431,9 @@ See: \"window-stool-use-overlays\""
                    (advice-add #'window-resize :before #'window-stool--window-resize-before-advice)
                    (advice-add #'window-resize :after #'window-stool--window-resize-after-advice)
 
-                   (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
+                   ;; (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
 
-                   (add-hook 'pre-command-hook #'window-stool--pre-command-hook nil t)
+                   ;; (add-hook 'pre-command-hook #'window-stool--pre-command-hook nil t)
 
                    ;; little hack to redisplay the overlay after a delay in the cases where
                    ;; the overlay ends up in an odd position/not displayed and window-scroll-functions don't run
@@ -489,7 +466,8 @@ See: \"window-stool-use-overlays\""
                  (window-stool-window--advise-window-functions))))
     ;; clean up overlay stuff
     (progn (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
-           (remove-hook 'post-command-hook #'window-stool--scroll-overlay-into-position t)
+
+           ;; (remove-hook 'post-command-hook #'window-stool--scroll-overlay-into-position t)
            (setq window-scroll-functions
                  (remove #'window-stool--scroll-function window-scroll-functions))
            (setq window-stool-buffer-list (cl-remove (current-buffer) window-stool-buffer-list))
@@ -500,6 +478,7 @@ See: \"window-stool-use-overlays\""
            ;; cleanup window stuff
            (when (boundp 'window-stool--prev-window-min-height) (setq window-min-height window-stool--prev-window-min-height))
            (remove-hook 'post-command-hook #'window-stool-window--create)
+           (remove-hook 'pre-command-hook #'window-stool--pre-command-hook)
            (window-stool-window--delete)
            (window-stool-window--remove-window-function-advice))))
 
