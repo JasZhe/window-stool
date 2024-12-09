@@ -355,9 +355,19 @@ This fixes the issue with multiple windows showing the same buffer."
             (scroll-down-line)))))))
 
 (defun window-stool--scroll-function (window display-start)
-  "Convenience wrapper for \"window-scroll-functions\".
-Only requires use of DISPLAY-START.
-See: \"window-stool-single-overlay\"."
+  "Convenience wrapper for `window-scroll-functions'."
+  (when (and (buffer-file-name)
+             (or (not (boundp 'git-commit-mode))
+                 (not git-commit-mode)))
+
+    ;; for org mode we can't use the exact display-start passed via window-scroll-functions
+    ;; if org-hide-emphasis-markers is set, for instance:
+    ;; *This is bold* then display-start would point to the "T" instead of
+    ;; the first "*" and (scroll-down 1) would complain about beginning of buffer
+    (window-stool-single-overlay window (save-excursion (goto-char display-start) (line-beginning-position)))))
+
+(defun window-stool--state-change-function (window)
+  "Convenience wrapper for `window-state-change-functions' "
   (when (and (buffer-file-name)
              (or (not (boundp 'git-commit-mode))
                  (not git-commit-mode)))
@@ -365,7 +375,7 @@ See: \"window-stool-single-overlay\"."
     ;; for org mode, if we hide the font decoration symbols for instance:
     ;; *This is bold* then display-start would point to the "T" instead of
     ;; the first "*" and (scroll-down 1) would complain about beginning of buffer
-    (window-stool-single-overlay window (save-excursion (goto-char display-start) (line-beginning-position)))))
+    (window-stool-single-overlay window (window-start window))))
 
 (defun window-stool--selection-change-function (frame-or-window)
   (if (and (windowp frame-or-window) (window-live-p frame-or-window))
@@ -480,7 +490,11 @@ See: \"window-stool-use-overlays\""
                    ;; which will break the global window-scroll-functions' window-stool--scroll-function
                    ;; therefore breaking window-stool for all other buffers
                    (make-local-variable 'window-scroll-functions)
-                   (add-to-list 'window-scroll-functions #'window-stool--scroll-function))
+                   (add-to-list 'window-scroll-functions #'window-stool--scroll-function)
+
+                   (make-local-variable 'window-state-change-functions)
+                   (add-to-list 'window-state-change-functions #'window-stool--state-change-function)
+                   )
                (progn
                  ;; cancel the timer if we're using the "window" version
                  (when (timerp window-stool-timer)
