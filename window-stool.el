@@ -81,8 +81,10 @@ Strings should end with newlines.
 Defaults to indentation based context function."
   :type '(alist :key-type symbol :value-type function))
 
+
 (defcustom window-stool-major-mode-valid-indentation-ctx-regex '((nil .".*[[:alnum:]][[:alnum:]].*"))
-  "A regex for valid context lines for the default indentation based context defun.
+  "Alist of major-modes to regex for valid context lines.
+Intended to be used for the default indentation based context defun.
 The default is any string with at least two alphanumeric characters.
 This way, we avoid showing lines of only symbols like parentheses.
 Example in SQL:
@@ -93,6 +95,9 @@ CREATE TABLE xyz
 
 We want to show \"CREATE TABLE xyz\" instead of ( as the upper context here."
   :type '(alist :key-type symbol :value-type regexp))
+
+(defvar-local window-stool-valid-indentation-ctx-regex ""
+  "Valid context regex for the current buffer")
 
 (defvar window-stool-fn #'ignore
   "Function that returns the context in a buffer from point.")
@@ -145,7 +150,8 @@ Will move point so caller should call \"save-excursion\"."
   ;; keep going back even further until we hit a "useful" line for context: at least 2 alphanumeric characters
   ;; empty body cause we basically just do the re-search-backward as part of the loop
   (while (and (or (looking-at-p (rx-to-string `(: (* blank) eol)))
-                  (not (looking-at-p window-stool-valid-indentation-ctx-regex)))
+                  (not (looking-at-p (cdr (or (assq major-mode window-stool-major-mode-valid-indentation-ctx-regex)
+                                              (assq nil window-stool-major-mode-valid-indentation-ctx-regex))))))
               (re-search-backward (rx-to-string `(: bol (+ any))) nil t))))
 
 (defun window-stool-get-indentation-context-from (pos)
