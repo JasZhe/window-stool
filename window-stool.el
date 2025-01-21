@@ -165,16 +165,34 @@ Will move point so caller should call \"save-excursion\"."
          (prev-indentation (current-indentation))
          (ctx-fn (lambda ()
                    (concat
-                    (buffer-substring
-                     (line-beginning-position)
-                     (line-end-position))
+                    ;; TODO: clean this up alongside the pretty much exact same code in the overlay function
+                    (if (window-stool--check-if-on-visually-split-line (point))
+                        (let* ((full-line
+                                (buffer-substring (line-beginning-position) (line-end-position)))
+                               (full-line-beg-whitespace
+                                (when (string-match "\\`\\(\\s-+\\)" full-line)
+                                  (match-string 1 full-line)))
+                               (visual-line
+                                (string-trim
+                                 (buffer-substring
+                                  (save-excursion (beginning-of-visual-line) (point))
+                                  (save-excursion (end-of-visual-line) (point))
+                                  )))
+                               )
+                          (concat full-line-beg-whitespace visual-line)
+                          )
+                      (buffer-substring
+                       (save-excursion (beginning-of-visual-line) (point))
+                       (save-excursion (end-of-visual-line) (point))
+                       )
+                      )
                     "\n")))
          (ctx-str (funcall ctx-fn)))
     ;; Need to add the current line that pos is on as well cause there's some weird issues
     ;; if we have an empty context
     (cl-pushnew ctx-str ctx)
     (while (> (current-indentation) 0)
-      (forward-line -1)
+      (line-move-visual -1 'noerror)
       (window-stool-find-prev-non-empty-line)
       (when (< (current-indentation) prev-indentation)
         (setq prev-indentation (current-indentation))
@@ -278,18 +296,38 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
             (let* ((ol-beg-pos display-start)
                    (ol-end-pos (save-excursion
                                  (goto-char display-start)
-                                 (forward-visible-line 1)
-                                 (line-end-position)))
+                                 (line-move-visual 1)
+                                 (save-excursion (end-of-visual-line) (point))))
                    ;; There's some bugginess if we don't have end-pos be on the next line,
                    ;; cause depending on the order of operations we might scroll past our overlay after redisplay.
                    ;; The solution here is to make the overlay 2 lines and just show
                    ;; the "covered" second line as part of the overlay
                    (covered-line (save-excursion
                                    (goto-char display-start)
-                                   (forward-visible-line 1)
-                                   (buffer-substring
-                                    (line-beginning-position)
-                                    (line-end-position))))
+                                   (line-move-visual 1)
+                                   ;; respecting visual lines to fill the whitespace
+                                   (if (window-stool--check-if-on-visually-split-line (point))
+                                       (let* ((full-line
+                                               (buffer-substring (line-beginning-position) (line-end-position)))
+                                              (full-line-beg-whitespace
+                                               (when (string-match "\\`\\(\\s-+\\)" full-line)
+                                                 (match-string 1 full-line)))
+                                              (visual-line
+                                               (string-trim
+                                                (buffer-substring
+                                                 (save-excursion (beginning-of-visual-line) (point))
+                                                 (save-excursion (end-of-visual-line) (point))
+                                                 )))
+                                              )
+                                         (concat full-line-beg-whitespace visual-line)
+                                         )
+                                     (buffer-substring
+                                      (save-excursion (beginning-of-visual-line) (point))
+                                      (save-excursion (end-of-visual-line) (point))
+                                      )
+                                     )
+
+                                   ))
                    (context-str-1 (when ctx (cl-reduce (lambda (acc str)
                                                          (let* ((truncated (truncate-string-to-width str (1- (window-size window t)) 0 nil "\n"))
                                                                 (truncated-respecting-word-boundaries
@@ -328,9 +366,24 @@ This fixes the issue with multiple windows showing the same buffer."
     (delete-overlay window-stool-overlay)
     )
   )
+(defun window-stool--check-if-on-visually-split-line (&optional pos)
+  (save-excursion
+    (when pos (goto-char pos))
+    (let (
+          (visual-backward-line-pos
+           (save-excursion (line-move-visual -1 'noerror) (beginning-of-line) (point)))
+          (backward-line-end-pos (save-excursion (forward-line) (beginning-of-line) (point)))
+          (visual-forward-line-pos
+           (save-excursion (line-move-visual 1 'noerror) (beginning-of-line) (point)))
+          (forward-line-end-pos (save-excursion (forward-line) (beginning-of-line) (point))))
+      (or (not (eq visual-forward-line-pos forward-line-end-pos))
+          (not (eq visual-backward-line-pos backward-line-end-pos))
+          ))))
 
 (defun window-stool--scroll-overlay-into-position ()
-  "Fixes some bugginess with scrolling getting stuck when the overlay large."
+  "Fixes some bugginess with scrolling getting stuck when the overlay large.
+Mostly issues with scrolling upwards"
+  ;; NOTE: in case this comes handy in the future, there's a set-window-start function that could be useful alongside overlay end or something.. for now it seems we're good without
   (when (and window-stool-overlay
              (overlay-buffer window-stool-overlay)
              (> (window-size (selected-window)) window-stool--min-height)
@@ -338,21 +391,16 @@ This fixes the issue with multiple windows showing the same buffer."
              (not (eq (window-start) window-stool--prev-window-start)) (buffer-file-name))
     (let* ((ctx-1 (save-excursion (funcall window-stool-fn (window-start))))
            (ctx (window-stool--truncate-context ctx-1)))
+
+      ;; TODO: investigate why scrolling 'evil-scroll-line-up goes to the beginning of the line instead of the visual line.. 'evil-scroll-line-down works as expected
       (ignore-errors
         (when (and ctx (or (eq last-command 'evil-scroll-line-up)
                            (eq last-command 'viper-scroll-down-one)
                            (eq last-command 'scroll-down-line)))
-          (forward-visible-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
+          (line-move-visual (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
 
           ;; So we don't need to double scroll when window start is in the middle of a visual line split
-          (when (= (save-excursion
-                     (goto-char (window-start))
-                     (line-beginning-position))
-                   (save-excursion
-                     (goto-char (window-start))
-                     (line-move-visual -1 t)
-                     (line-beginning-position)))
-            (scroll-down-line)))))))
+          (when (window-stool--check-if-on-visually-split-line (window-start)) (scroll-down-line)))))))
 
 (defun window-stool--scroll-function (window display-start)
   "Convenience wrapper for `window-scroll-functions'."
@@ -364,7 +412,10 @@ This fixes the issue with multiple windows showing the same buffer."
     ;; if org-hide-emphasis-markers is set, for instance:
     ;; *This is bold* then display-start would point to the "T" instead of
     ;; the first "*" and (scroll-down 1) would complain about beginning of buffer
-    (window-stool-single-overlay window (save-excursion (goto-char display-start) (line-beginning-position)))))
+    (window-stool-single-overlay window
+                                 (save-excursion
+                                   (goto-char display-start)
+                                   (beginning-of-visual-line)))))
 
 (defun window-stool--state-change-function (window)
   "Convenience wrapper for `window-state-change-functions' "
@@ -428,7 +479,7 @@ Cancels \"window-stool-timer\" if \"window-stool-buffer-list\" is empty."
       (when (and (boundp 'window-stool-mode)
                  window-stool-mode
                  (not (eq window-stool-fn #'ignore)))
-                 (window-stool-single-overlay window (save-excursion (goto-char (window-start window)) (line-beginning-position)))))))
+                 (window-stool-single-overlay window (save-excursion (goto-char (window-start window)) (beginning-of-visual-line)))))))
 
 ;;;###autoload
 (define-minor-mode window-stool-mode
