@@ -259,7 +259,9 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
   ;; Issue with having multiple windows displaying the same buffer since now
   ;; there's multiple "window starts" which make it difficult to deal with.
   ;; Simpler to temporarily delete the overlays until only a single window shows the buffer for now.
-  (when (eq window (selected-window))
+  (when (and (eq window (selected-window))
+         (with-current-buffer (window-buffer window)
+               window-stool-mode))
     (unless window-stool-overlay (setq-local window-stool-overlay (make-overlay 1 1)))
     (if (and window-stool-use-overlays
              (or (<= (window-size window) window-stool--min-height)
