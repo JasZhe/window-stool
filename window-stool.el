@@ -173,7 +173,7 @@ Will move point so caller should call \"save-excursion\"."
     ;; Need to add the current line that pos is on as well cause there's some weird issues
     ;; if we have an empty context
     (cl-pushnew ctx-str ctx)
-    (while (> (current-indentation) 0)
+    (while (and (> (current-indentation) 0) (not (bobp)))
       (forward-line -1)
       (window-stool-find-prev-non-empty-line)
       (when (< (current-indentation) prev-indentation)
