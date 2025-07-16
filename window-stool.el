@@ -473,7 +473,6 @@ See: \"window-stool-use-overlays\""
                    (advice-add #'window-resize :after #'window-stool--window-resize-after-advice)
 
                    (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
-
                    (add-hook 'pre-command-hook #'window-stool--pre-command-hook nil t)
 
                    ;; little hack to redisplay the overlay after a delay in the cases where
@@ -511,13 +510,20 @@ See: \"window-stool-use-overlays\""
                  (window-stool-window--advise-window-functions))))
     ;; clean up overlay stuff
     (progn (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
-           (remove-hook 'post-command-hook #'window-stool--scroll-overlay-into-position t)
-           (setq window-scroll-functions
-                 (remove #'window-stool--scroll-function window-scroll-functions))
-           (setq window-stool-buffer-list (cl-remove (current-buffer) window-stool-buffer-list))
-           (kill-local-variable 'scroll-margin)
            (advice-remove #'window-resize #'window-stool--window-resize-before-advice)
            (advice-remove #'window-resize #'window-stool--window-resize-after-advice)
+
+           (remove-hook 'pre-command-hook #'window-stool--pre-command-hook t)
+           (remove-hook 'post-command-hook #'window-stool--scroll-overlay-into-position t)
+
+           (setq window-scroll-functions
+                 (remove #'window-stool--scroll-function window-scroll-functions))
+           (setq window-state-change-functions
+                 (remove #'window-stool--state-change-function window-state-change-functions))
+
+           (setq window-stool-buffer-list (cl-remove (current-buffer) window-stool-buffer-list))
+           (kill-local-variable 'scroll-margin)
+
 
            ;; cleanup window stuff
            (when (boundp 'window-stool--prev-window-min-height) (setq window-min-height window-stool--prev-window-min-height))
