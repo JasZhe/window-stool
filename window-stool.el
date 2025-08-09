@@ -466,7 +466,7 @@ See: \"window-stool-use-overlays\""
                  (progn
                    ;; turn off the non-overlay stuff if they're enabled
                    (window-stool-window--delete)
-                   (remove-hook 'post-command-hook #'window-stool-window--create)
+                   (remove-hook 'post-command-hook #'window-stool-window--create t)
                    (window-stool-window--remove-window-function-advice)
 
                    (advice-add #'window-resize :before #'window-stool--window-resize-before-advice)
@@ -485,16 +485,13 @@ See: \"window-stool-use-overlays\""
                      (cl-pushnew (current-buffer) window-stool-buffer-list))
 
                    ;; remove from window-stool-buffer-list if buffer iskilled
-                   (add-hook 'kill-buffer-hook (lambda () (cl-remove (current-buffer) window-stool-buffer-list)))
+                   (add-hook 'kill-buffer-hook (lambda () (cl-remove (current-buffer) window-stool-buffer-list)) nil t)
 
                    ;; prevents a (void-function: nil) error when we switch to a non-hooked mode i.e. in fundamental mode,
                    ;; which will break the global window-scroll-functions' window-stool--scroll-function
                    ;; therefore breaking window-stool for all other buffers
-                   (make-local-variable 'window-scroll-functions)
-                   (add-to-list 'window-scroll-functions #'window-stool--scroll-function)
-
-                   (make-local-variable 'window-state-change-functions)
-                   (add-to-list 'window-state-change-functions #'window-stool--state-change-function)
+                   (add-hook 'window-scroll-functions #'window-stool--scroll-function nil t)
+                   (add-hook 'window-state-change-functions #'window-stool--state-change-function nil t)
                    )
                (progn
                  ;; cancel the timer if we're using the "window" version
@@ -505,8 +502,8 @@ See: \"window-stool-use-overlays\""
                  (setq window-stool--prev-window-min-height window-min-height)
                  (setq window-min-height 0)
                  (window-divider-mode -1)
-                 (add-hook 'window-selection-change-functions #'window-stool--selection-change-function)
-                 (add-hook 'post-command-hook #'window-stool-window--create)
+                 (add-hook 'window-selection-change-functions #'window-stool--selection-change-function nil t)
+                 (add-hook 'post-command-hook #'window-stool-window--create nil t)
                  (window-stool-window--advise-window-functions))))
     ;; clean up overlay stuff
     (progn (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
@@ -516,18 +513,15 @@ See: \"window-stool-use-overlays\""
            (remove-hook 'pre-command-hook #'window-stool--pre-command-hook t)
            (remove-hook 'post-command-hook #'window-stool--scroll-overlay-into-position t)
 
-           (setq window-scroll-functions
-                 (remove #'window-stool--scroll-function window-scroll-functions))
-           (setq window-state-change-functions
-                 (remove #'window-stool--state-change-function window-state-change-functions))
+           (remove-hook 'window-scroll-functions #'window-stool--scroll-function t)
+           (remove-hook 'window-state-change-functions #'window-stool--state-change-function t)
 
            (setq window-stool-buffer-list (cl-remove (current-buffer) window-stool-buffer-list))
            (kill-local-variable 'scroll-margin)
 
-
            ;; cleanup window stuff
            (when (boundp 'window-stool--prev-window-min-height) (setq window-min-height window-stool--prev-window-min-height))
-           (remove-hook 'post-command-hook #'window-stool-window--create)
+           (remove-hook 'post-command-hook #'window-stool-window--create t)
            (window-stool-window--delete)
            (window-stool-window--remove-window-function-advice))))
 
