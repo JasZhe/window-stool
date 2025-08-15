@@ -310,6 +310,7 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
               (when window-stool-overlay
                 (move-overlay window-stool-overlay ol-beg-pos ol-end-pos)
                 (overlay-put window-stool-overlay 'type 'window-stool--buffer-overlay)
+                (overlay-put window-stool-overlay 'window window)
                 (overlay-put window-stool-overlay 'priority 0)
                 (overlay-put window-stool-overlay 'display context-str))
               )
