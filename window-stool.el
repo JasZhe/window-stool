@@ -29,7 +29,6 @@
 ;;; Code:
 ;;;
 (require 'cl-lib)
-(require 'window-stool-window)
 (require 'org)
 (require 'timer)
 
@@ -42,11 +41,6 @@
   "Face for window stool overlay background.
 This will be ADDED to the context string's existing buffer font locking."
   :group 'window-stool)
-
-(defcustom window-stool-use-overlays t
-  "Whether or not to use overlays or dedicated window.
-It's recommended to disable \"window-divider-mode\" if this is nil."
-  :type '(boolean))
 
 (defcustom window-stool-n-from-top 1
   "Number of lines of context to keep from the outermost context list.
@@ -260,13 +254,12 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
   ;; there's multiple "window starts" which make it difficult to deal with.
   ;; Simpler to temporarily delete the overlays until only a single window shows the buffer for now.
   (when (and (eq window (selected-window))
-         (with-current-buffer (window-buffer window)
+             (with-current-buffer (window-buffer window)
                window-stool-mode))
     (unless window-stool-overlay (setq-local window-stool-overlay (make-overlay 1 1)))
-    (if (and window-stool-use-overlays
-             (or (<= (window-size window) window-stool--min-height)
-                 (<= (window-size window t) window-stool--min-width)
-                 (eq display-start (point-min))))
+    (if (or (<= (window-size window) window-stool--min-height)
+            (<= (window-size window t) window-stool--min-width)
+            (eq display-start (point-min)))
         (delete-overlay window-stool-overlay)
       (progn
         ;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory. Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
@@ -328,9 +321,7 @@ This fixes the issue with multiple windows showing the same buffer."
              (or (eq this-command 'evil-scroll-line-down)
                  (eq this-command 'viper-scroll-up-one)
                  (eq this-command 'scroll-up-line)))
-    (delete-overlay window-stool-overlay)
-    )
-  )
+    (delete-overlay window-stool-overlay)))
 
 (defun window-stool--scroll-overlay-into-position ()
   "Fixes some bugginess with scrolling getting stuck when the overlay large."
@@ -345,7 +336,7 @@ This fixes the issue with multiple windows showing the same buffer."
         (when (and ctx (or (eq last-command 'evil-scroll-line-up)
                            (eq last-command 'viper-scroll-down-one)
                            (eq last-command 'scroll-down-line)))
-          (forward-visible-line (- (+ (min (- (length ctx) (length window-stool--prev-ctx)) 0) 1)))
+          (forward-visible-line (- (1+ (min (- (length ctx) (length window-stool--prev-ctx)) 0))))
 
           ;; So we don't need to double scroll when window start is in the middle of a visual line split
           (when (= (save-excursion
@@ -431,19 +422,16 @@ Cancels \"window-stool-timer\" if \"window-stool-buffer-list\" is empty."
       (when (and (boundp 'window-stool-mode)
                  window-stool-mode
                  (not (eq window-stool-fn #'ignore)))
-                 (window-stool-single-overlay window (save-excursion (goto-char (window-start window)) (line-beginning-position)))))))
+        (window-stool-single-overlay window (save-excursion (goto-char (window-start window)) (line-beginning-position)))))))
 
 ;;;###autoload
 (define-minor-mode window-stool-mode
   "Minor mode to show buffer context.
-Get a glimpse of the buffer contents above your current window psoition.
+Get a glimpse of the buffer contents above your current window position.
 Like a stool to peek a little higher than you could normally.
 
 Uses overlays by default and attaches to \"post-command-hook\".
-CAUTION: This can have some major performance impact on scrolling.
-
-Alternative option to use a pseudo-dedicated window.
-See: \"window-stool-use-overlays\""
+CAUTION: This can have some major performance impact on scrolling."
   :lighter " WinStool"
   :group 'window-stool
   (if window-stool-mode
@@ -463,49 +451,30 @@ See: \"window-stool-use-overlays\""
              (when (< scroll-margin (+ window-stool-n-from-top window-stool-n-from-bottom))
                (setq-local scroll-margin (+ 1 window-stool-n-from-top window-stool-n-from-bottom)))
 
-             (if window-stool-use-overlays
-                 (progn
-                   ;; turn off the non-overlay stuff if they're enabled
-                   (window-stool-window--delete)
-                   (remove-hook 'post-command-hook #'window-stool-window--create t)
-                   (window-stool-window--remove-window-function-advice)
+             (advice-add #'window-resize :before #'window-stool--window-resize-before-advice)
+             (advice-add #'window-resize :after #'window-stool--window-resize-after-advice)
 
-                   (advice-add #'window-resize :before #'window-stool--window-resize-before-advice)
-                   (advice-add #'window-resize :after #'window-stool--window-resize-after-advice)
+             (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
+             (add-hook 'pre-command-hook #'window-stool--pre-command-hook nil t)
 
-                   (add-hook 'post-command-hook #'window-stool--scroll-overlay-into-position nil t)
-                   (add-hook 'pre-command-hook #'window-stool--pre-command-hook nil t)
+             ;; little hack to redisplay the overlay after a delay in the cases where
+             ;; the overlay ends up in an odd position/not displayed and window-scroll-functions don't run
+             ;; like when changing tabs
+             (unless (timerp window-stool-timer)
+               (setq window-stool-timer (run-with-idle-timer 0.5 t #'window-stool-idle-fn)))
 
-                   ;; little hack to redisplay the overlay after a delay in the cases where
-                   ;; the overlay ends up in an odd position/not displayed and window-scroll-functions don't run
-                   ;; like when changing tabs
-                   (unless (timerp window-stool-timer)
-                     (setq window-stool-timer (run-with-idle-timer 0.5 t #'window-stool-idle-fn)))
+             (when (buffer-file-name)
+               (cl-pushnew (current-buffer) window-stool-buffer-list))
 
-                   (when (buffer-file-name)
-                     (cl-pushnew (current-buffer) window-stool-buffer-list))
+             ;; remove from window-stool-buffer-list if buffer iskilled
+             (add-hook 'kill-buffer-hook (lambda () (cl-remove (current-buffer) window-stool-buffer-list)) nil t)
 
-                   ;; remove from window-stool-buffer-list if buffer iskilled
-                   (add-hook 'kill-buffer-hook (lambda () (cl-remove (current-buffer) window-stool-buffer-list)) nil t)
+             ;; prevents a (void-function: nil) error when we switch to a non-hooked mode i.e. in fundamental mode,
+             ;; which will break the global window-scroll-functions' window-stool--scroll-function
+             ;; therefore breaking window-stool for all other buffers
+             (add-hook 'window-scroll-functions #'window-stool--scroll-function nil t)
+             (add-hook 'window-state-change-functions #'window-stool--state-change-function nil t))
 
-                   ;; prevents a (void-function: nil) error when we switch to a non-hooked mode i.e. in fundamental mode,
-                   ;; which will break the global window-scroll-functions' window-stool--scroll-function
-                   ;; therefore breaking window-stool for all other buffers
-                   (add-hook 'window-scroll-functions #'window-stool--scroll-function nil t)
-                   (add-hook 'window-state-change-functions #'window-stool--state-change-function nil t)
-                   )
-               (progn
-                 ;; cancel the timer if we're using the "window" version
-                 (when (timerp window-stool-timer)
-                   (cancel-timer window-stool-timer)
-                   (setq window-stool-timer nil))
-
-                 (setq window-stool--prev-window-min-height window-min-height)
-                 (setq window-min-height 0)
-                 (window-divider-mode -1)
-                 (add-hook 'window-selection-change-functions #'window-stool--selection-change-function nil t)
-                 (add-hook 'post-command-hook #'window-stool-window--create nil t)
-                 (window-stool-window--advise-window-functions))))
     ;; clean up overlay stuff
     (progn (remove-overlays (point-min) (point-max) 'type 'window-stool--buffer-overlay)
            (advice-remove #'window-resize #'window-stool--window-resize-before-advice)
@@ -520,11 +489,7 @@ See: \"window-stool-use-overlays\""
            (setq window-stool-buffer-list (cl-remove (current-buffer) window-stool-buffer-list))
            (kill-local-variable 'scroll-margin)
 
-           ;; cleanup window stuff
-           (when (boundp 'window-stool--prev-window-min-height) (setq window-min-height window-stool--prev-window-min-height))
-           (remove-hook 'post-command-hook #'window-stool-window--create t)
-           (window-stool-window--delete)
-           (window-stool-window--remove-window-function-advice))))
+           (when (boundp 'window-stool--prev-window-min-height) (setq window-min-height window-stool--prev-window-min-height)))))
 
 (provide 'window-stool)
 ;;; window-stool.el ends here
