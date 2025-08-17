@@ -134,9 +134,7 @@ Will move point so caller should call \"save-excursion\"."
                         (funcall ctx-fn)
                         'face
                         (nth (1- (nth 0 (org-heading-components))) org-level-faces))))
-          (cl-pushnew ctx-str ctx)
-          )
-        )
+          (cl-pushnew ctx-str ctx)))
       ctx)))
 
 (defun window-stool-find-prev-non-empty-line ()
@@ -199,30 +197,6 @@ Just returns CTX if both are 0."
         (append top-ctx bottom-ctx))
     ctx))
 
-(defun window-stool--windows-displaying-buf (buf)
-  (cl-reduce
-   (lambda (acc win)
-     (if (eq (window-buffer win) buf)
-         (push win acc)
-       acc))
-   (window-list)
-   :initial-value '()))
-
-(defun window-stool--upper-window-displaying-buf (buf)
-  "Find the window showing \"buf\" with the smallest display-start.
-In other words, the window that shows earlier contents of the buffer.
-Return a cons cell of the window with its \"window-start\" value."
-  (cl-reduce
-   (lambda (acc win)
-     (if (eq (window-buffer win) buf)
-         (let ((win-start (window-start win)))
-           (if (< win-start (cdr acc))
-               (cons win win-start)
-             acc))
-       acc))
-   (window-stool--windows-displaying-buf buf)
-   :initial-value (cons nil most-positive-fixnum)))
-
 (defvar-local window-stool-overlay nil
   "Variable to hold the overlay used in window-stool.")
 
@@ -262,7 +236,8 @@ Contents of the overlay is based on the results of \"window-stool-fn\"."
             (eq display-start (point-min)))
         (delete-overlay window-stool-overlay)
       (progn
-        ;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory. Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
+        ;; Some git operations i.e. commit/rebase open up a buffer that we can edit which is based a temporary file in the .git directory.
+        ;; Most of the time I don't really want the overlay in those buffers so I've opted to disable them here via this simple heuristic.
         (when (and (not (or
                          (cl-find-if (lambda (r) (and buffer-file-name (string-match r buffer-file-name)))
                                      window-stool-ignore-file-regexps)
