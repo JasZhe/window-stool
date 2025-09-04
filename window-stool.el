@@ -203,6 +203,11 @@ Just returns CTX if both are 0."
 (defvar-local window-stool--prev-ctx nil)
 (defvar-local window-stool--prev-indentation 0)
 
+(defvar-local window-stool-overlays '()
+    "Alist of windows to overlays for the current buffer.
+Most of the time this is just a single element, unless the buffer is shown in
+multiple windows,in which case we need an overlay for each window.")
+
 (defcustom window-stool-ignore-buffer-regexps nil
   "List of buffer regexps to disable window-stool overlay on.
 Different from `window-stool-ignore-file-regexps'"
